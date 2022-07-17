@@ -19,13 +19,33 @@
 */
 
 
+// manually check with every single header, if include dependencies are met
+//#include <offscr_bmp_drw/cartesian_canvas.hpp>
+//#include <offscr_bmp_drw/response_image.hpp>
+//#include <offscr_bmp_drw/sobel.hpp>
+//#include <offscr_bmp_drw/convert.hpp>
+//#include <offscr_bmp_drw/image_drawer.hpp>
+//#include <offscr_bmp_drw/bitmap_image.hpp>
+//#include <offscr_bmp_drw/colormaps.hpp>
+//#include <offscr_bmp_drw/colors.hpp>
+//#include <offscr_bmp_drw/misc.hpp>
+//#include <offscr_bmp_drw/plasma.hpp>
+//#include <offscr_bmp_drw/checkered_pattern.hpp>
+
+
+#include <offscr_bmp_drw/colormaps.hpp>
+#include <offscr_bmp_drw/cartesian_canvas.hpp>
+#include <offscr_bmp_drw/plasma.hpp>
+#include <offscr_bmp_drw/checkered_pattern.hpp>
+
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <iostream>
 #include <string>
 
-#include "bitmap_image.hpp"
+
+using namespace OffScreenBitmapDraw;
 
 
 void test01()

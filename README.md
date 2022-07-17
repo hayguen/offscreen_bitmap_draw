@@ -1,4 +1,4 @@
-# C++ Offscreen Bitmap Drawing
+# Offscreen Bitmap Drawing C++ Header-Only Library
 
 ## Origin
 
@@ -15,11 +15,22 @@ https://www.partow.net/programming/bitmap/documentation/annotated.html
 Perform inlined in-memory drawing operations with normal CPU - not using GPU,
 which don't need library operations or function calls.
 
+Thus, it's header-only.
+
+
+## Changes from Arash Partow's version
+
+* splitted/organized single header into multiple headers in `offscr_bmp_drw/` directory
+* added (still) minimalistic cmake support
+* moved all classes/functions into namespace `OffScreenBitmapDraw`
+* other incompatible changes planned!
+
 
 ## Related / Similar C++ Libraries
 
-* Tools for offscreen bitmap drawing
+* Tools for offscreen bitmap drawing - with Adafruit GFX Library
   * https://github.com/leftCoast/LC_offscreen
+  * https://github.com/adafruit/Adafruit-GFX-Library
 * Simple C++ off screen raster graphics library
   * https://github.com/richmit/mraster
 
