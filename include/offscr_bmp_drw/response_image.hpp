@@ -30,82 +30,78 @@ template <typename T>
 class response_image
 {
 public:
+    using Float = T;
 
-   response_image(const std::size_t& width, const std::size_t& height, const T null = T(0))
-   : width_ (width ),
-     height_(height),
-     null_  (null  )
-   {
-      data_.resize(width_ * height_);
-   }
+    response_image(const std::size_t& width, const std::size_t& height, const T null = T(0))
+        : width_ (width), height_(height), null_(null)
+    {
+        data_.resize(width_ * height_);
+    }
 
-   std::size_t width () const { return  width_; }
-   std::size_t height() const { return height_; }
+    std::size_t width () const { return  width_; }
+    std::size_t height() const { return height_; }
 
-   void set_all(const T& t)
-   {
-      std::fill_n(data_.begin(), data_.size(), t);
-   }
+    void set_all(const T& t)
+    {
+        std::fill_n(data_.begin(), data_.size(), t);
+    }
 
-   const T& operator()(const std::size_t& x, const std::size_t& y) const
-   {
-      if (y >= height_) return null_;
-      if (x >= width_ ) return null_;
+    const T& operator()(const std::size_t& x, const std::size_t& y) const
+    {
+        if (y >= height_) return null_;
+        if (x >= width_ ) return null_;
+        return data_[width_ * y + x];
+    }
 
-      return data_[width_ * y + x];
-   }
+    T& operator()(const std::size_t& x, const std::size_t& y)
+    {
+        if (y >= height_) return null_;
+        if (x >= width_ ) return null_;
+        return data_[width_ * y + x];
+    }
 
-   T& operator()(const std::size_t& x, const std::size_t& y)
-   {
-      if (y >= height_) return null_;
-      if (x >= width_ ) return null_;
+    bool valid(const std::size_t& x, const std::size_t& y)
+    {
+        return ((x < width_ ) || (y < height_));
+    }
 
-      return data_[width_ * y + x];
-   }
+    void inc_all(const T& v)
+    {
+        for (std::size_t i = 0; i < data_.size(); ++i)
+        {
+            data_[i] += v;
+        }
+    }
 
-   bool valid(const std::size_t& x, const std::size_t& y)
-   {
-      return ((x < width_ ) || (y < height_));
-   }
+    void mul_all(const T& v)
+    {
+        for (std::size_t i = 0; i < data_.size(); ++i)
+        {
+            data_[i] *= v;
+        }
+    }
 
-   void inc_all(const T& v)
-   {
-      for (std::size_t i = 0; i < data_.size(); ++i)
-      {
-         data_[i] += v;
-      }
-   }
+    T* row(const std::size_t& row_index)
+    {
+        if (row_index < height_)
+            return &data_[width_ * row_index];
+        else
+            return reinterpret_cast<T*>(0);
+    }
 
-   void mul_all(const T& v)
-   {
-      for (std::size_t i = 0; i < data_.size(); ++i)
-      {
-         data_[i] *= v;
-      }
-   }
-
-   T* row (const std::size_t& row_index)
-   {
-      if (row_index < height_)
-         return &data_[width_ * row_index];
-      else
-         return reinterpret_cast<T*>(0);
-   }
-
-   const T* row (const std::size_t& row_index) const
-   {
-      if (row_index < height_)
-         return data_[width_ * row_index];
-      else
-         return reinterpret_cast<T*>(0);
-   }
+    const T* row(const std::size_t& row_index) const
+    {
+        if (row_index < height_)
+            return data_[width_ * row_index];
+        else
+            return reinterpret_cast<T*>(0);
+    }
 
 private:
-
-   std::size_t    width_;
-   std::size_t    height_;
-   std::vector<T> data_;
-   T              null_;
+    std::size_t    width_;
+    std::size_t    height_;
+    std::vector<T> data_;
+    T              null_;
 };
 
 

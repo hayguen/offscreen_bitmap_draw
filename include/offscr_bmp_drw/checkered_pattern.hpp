@@ -20,17 +20,18 @@
 
 #pragma once
 
-#include "bitmap_image.hpp"
+#include "bitmap_image_rgb.hpp"
 
 
 namespace OffScreenBitmapDraw
 {
 
+template <class BitmapImageType = bitmap_image_rgb<> >
 inline void checkered_pattern(const unsigned int x_width,
                               const unsigned int y_width,
                               const unsigned char value,
-                              const bitmap_image::color_plane color,
-                              bitmap_image& image)
+                              const color_plane color,
+                              BitmapImageType& image)
 {
    if (
         (x_width >= image.width ()) ||
@@ -54,7 +55,7 @@ inline void checkered_pattern(const unsigned int x_width,
          setter_y = !setter_y;
       }
 
-      unsigned char* row = image.row(y) + color_plane_offset;
+      unsigned char* row = image.char_row(y) + color_plane_offset;
 
       for (unsigned int x = 0; x < width; ++x, row += image.bytes_per_pixel())
       {
@@ -71,12 +72,13 @@ inline void checkered_pattern(const unsigned int x_width,
    }
 }
 
+template <class BitmapImageType = bitmap_image_rgb<> >
 inline void checkered_pattern(const unsigned int x_width,
                               const unsigned int y_width,
                               const unsigned char red,
                               const unsigned char green,
                               const unsigned char blue,
-                              bitmap_image& image)
+                              BitmapImageType& image)
 {
    if (
         (x_width >= image.width ()) ||
@@ -99,7 +101,7 @@ inline void checkered_pattern(const unsigned int x_width,
          setter_y = !setter_y;
       }
 
-      unsigned char* row = image.row(y);
+      unsigned char* row = image.char_row(y);
 
       for (unsigned int x = 0; x < width; ++x, row += image.bytes_per_pixel())
       {

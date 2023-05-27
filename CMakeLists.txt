@@ -1,11 +1,16 @@
 cmake_minimum_required(VERSION 3.0)
-project(OFFSCREEN_BITMAP_DRAW)
+project(
+    OFFSCREEN_BITMAP_DRAW
+    DESCRIPTION "Header-only OffScreenBitmapDraw for C++11 (ant later!)"
+    HOMEPAGE_URL "https://github.com/hayguen/offscreen_bitmap_draw"
+    LANGUAGES CXX
+)
 
 option(DISABLE_LINK_WITH_M "Disables linking with m library to build with clangCL from MSVC" OFF)
 
 ######################################################
 
-set(CMAKE_CXX_STANDARD 98)
+set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -40,7 +45,9 @@ endif()
 ################################################
 
 set( OFFSCR_BMP_DRW_HEADERS
-  include/offscr_bmp_drw/bitmap_image.hpp
+  include/offscr_bmp_drw/bitmap_image_generic.hpp
+  include/offscr_bmp_drw/bitmap_image_rgb.hpp
+  include/offscr_bmp_drw/bitmap_image_file.hpp
   include/offscr_bmp_drw/cartesian_canvas.hpp
   include/offscr_bmp_drw/checkered_pattern.hpp
   include/offscr_bmp_drw/colormaps.hpp
@@ -52,6 +59,17 @@ set( OFFSCR_BMP_DRW_HEADERS
   include/offscr_bmp_drw/response_image.hpp
   include/offscr_bmp_drw/sobel.hpp
 )
+
+add_library(offscr_bmp_drw INTERFACE )
+
+target_include_directories(
+  offscr_bmp_drw
+  INTERFACE
+  "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>"
+)
+
+add_custom_target( offscr_bmp_drw.headers SOURCES ${OFFSCR_BMP_DRW_HEADERS} )
+
 
 ######################################################
 
@@ -66,7 +84,7 @@ add_custom_target(uninstall
 foreach (tt "all")
   add_executable(bitmap_test_${tt} EXCLUDE_FROM_ALL test/bitmap_test_${tt}.cpp )
   target_activate_cxx_compiler_warnings( bitmap_test_${tt} )
-  target_include_directories( bitmap_test_${tt} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include/" )
-  target_link_libraries( bitmap_test_${tt} ${STDCXXLIB} ${MATHLIB} )
+  # target_include_directories( bitmap_test_${tt} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include/" )
+  target_link_libraries( bitmap_test_${tt} offscr_bmp_drw ${STDCXXLIB} ${MATHLIB} )
 endforeach()
 

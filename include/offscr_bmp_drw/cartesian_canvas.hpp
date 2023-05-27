@@ -20,25 +20,46 @@
 
 #pragma once
 
-#include "bitmap_image.hpp"
+#include "bitmap_image_rgb.hpp"
 #include "image_drawer.hpp"
+
+#include <array>
 
 
 namespace OffScreenBitmapDraw
 {
 
+/// have mathematical coordinates:
+///   x grows from left to right
+///   y grows from bottom to top
+/// coordinates are only shifted, that point (0|0) is at center,
+/// but there's NO scaling
+template <class BitmapImageType = bitmap_image_rgb<>, class Float = double>
 class cartesian_canvas
 {
 public:
 
-   cartesian_canvas(const double x_length, const double y_length)
-   : width_div2_ (0.0),
-     height_div2_(0.0),
-     min_x_      (0.0),
-     min_y_      (0.0),
-     max_x_      (0.0),
-     max_y_      (0.0),
-     draw_       (image_)
+    static constexpr Float zero = Float(0.0);
+    static constexpr Float half = Float(0.5);
+    static constexpr Float one  = Float(1.0);
+    static constexpr Float two  = Float(2.0);
+    static constexpr Float eps  = Float(0.00001);
+
+    typedef typename BitmapImageType::pixel_t pixel_t;
+    typedef typename BitmapImageType::component_t component_t;
+
+    typedef std::pair<Float,Float> point_t;
+
+
+   cartesian_canvas(const Float x_length, const Float y_length)
+   : width_div2_ (zero)
+   , height_div2_(zero)
+   , min_x_      (zero)
+   , min_y_      (zero)
+   , max_x_      (zero)
+   , max_y_      (zero)
+   , image_      ()
+   , draw_       (image_)
    {
       setup_canvas(x_length,y_length);
    }
@@ -48,7 +69,7 @@ public:
       return !image_;
    }
 
-   void rectangle(double x1, double y1, double x2, double y2)
+   void rectangle(Float x1, Float y1, Float x2, Float y2)
    {
       line_segment(x1, y1, x2, y1);
       line_segment(x2, y1, x2, y2);
@@ -56,14 +77,14 @@ public:
       line_segment(x1, y2, x1, y1);
    }
 
-   void triangle(double x1, double y1, double x2, double y2, double x3, double y3)
+   void triangle(Float x1, Float y1, Float x2, Float y2, Float x3, Float y3)
    {
       line_segment(x1, y1, x2, y2);
       line_segment(x2, y2, x3, y3);
       line_segment(x3, y3, x1, y1);
    }
 
-   void quadix(double x1, double y1, double x2, double y2, double x3, double y3, double x4, double y4)
+   void quadix(Float x1, Float y1, Float x2, Float y2, Float x3, Float y3, Float x4, Float y4)
    {
       line_segment(x1, y1, x2, y2);
       line_segment(x2, y2, x3, y3);
@@ -71,7 +92,7 @@ public:
       line_segment(x4, y4, x1, y1);
    }
 
-   void line_segment(double x1, double y1, double x2, double y2)
+   void line_segment(Float x1, Float y1, Float x2, Float y2)
    {
       if (clip(x1, y1, x2, y2))
       {
@@ -84,7 +105,7 @@ public:
       }
    }
 
-   void horiztonal_line_segment(double x1, double x2, double y)
+   void horiztonal_line_segment(Float x1, Float x2, Float y)
    {
       x1 = clamp_x(x1);
       x2 = clamp_x(x2);
@@ -97,7 +118,7 @@ public:
       draw_.horiztonal_line_segment(sc_x1, sc_x2, sc_y);
    }
 
-   void vertical_line_segment(double y1, double y2, double x)
+   void vertical_line_segment(Float y1, Float y2, Float x)
    {
       y1 = clamp_y(y1);
       y2 = clamp_y(y2);
@@ -110,43 +131,40 @@ public:
       draw_.vertical_line_segment(sc_y1, sc_y2, sc_x);
    }
 
-   void ellipse(double centerx, double centery, double a, double b)
+   void ellipse(Float center_x, Float center_y, Float a, Float b)
    {
 
-      const int sc_cx = static_cast<int>(cart_to_screen_x(centerx));
-      const int sc_cy = static_cast<int>(cart_to_screen_y(centery));
+      const int sc_cx = static_cast<int>(cart_to_screen_x(center_x));
+      const int sc_cy = static_cast<int>(cart_to_screen_y(center_y));
 
       draw_.ellipse(sc_cx, sc_cy, static_cast<int>(a), static_cast<int>(b));
    }
 
-   void circle(double centerx, double centery, double radius)
+   void circle(Float center_x, Float center_y, Float radius)
    {
-      const int sc_cx = static_cast<int>(cart_to_screen_x(centerx));
-      const int sc_cy = static_cast<int>(cart_to_screen_y(centery));
+      const int sc_cx = static_cast<int>(cart_to_screen_x(center_x));
+      const int sc_cy = static_cast<int>(cart_to_screen_y(center_y));
 
       draw_.circle(sc_cx, sc_cy, static_cast<int>(radius));
    }
 
-   void fill_rectangle(double x1, double y1, double x2, double y2)
+   void fill_rectangle(Float x1, Float y1, Float x2, Float y2)
    {
       if (y1 > y2)
          std::swap(y1, y2);
 
-      for (double y = y1; y <= y2; y += 0.5)
+      for (Float y = y1; y <= y2; y += half)
       {
         line_segment(x1, y, x2, y);
       }
    }
 
-   void fill_triangle(double x1, double y1, double x2, double y2, double x3, double y3)
+   void fill_triangle(Float x1, Float y1, Float x2, Float y2, Float x3, Float y3)
    {
-      typedef std::pair<double,double> point_t;
-
-      std::vector<point_t> p;
-
-      p.push_back(std::make_pair(x1,y1));
-      p.push_back(std::make_pair(x2,y2));
-      p.push_back(std::make_pair(x3,y3));
+      std::array<point_t, 3> p { std::make_pair(x1,y1), std::make_pair(x2,y2), std::make_pair(x3,y3) };
+      // p.push_back(std::make_pair(x1,y1));
+      // p.push_back(std::make_pair(x2,y2));
+      // p.push_back(std::make_pair(x3,y3));
 
       if (p[0].second > p[1].second)
          std::swap(p[0],p[1]);
@@ -179,13 +197,13 @@ public:
 
          void bottom(const point_t& p0, const point_t& p1, const point_t& p2)
          {
-            const double m0 = (p1.first - p0.first) / (2.0 * (p1.second - p0.second));
-            const double m1 = (p2.first - p0.first) / (2.0 * (p2.second - p0.second));
+             const Float m0 = (p1.first - p0.first) / (two * (p1.second - p0.second));
+             const Float m1 = (p2.first - p0.first) / (two * (p2.second - p0.second));
 
-            double x0 = p0.first;
-            double x1 = p0.first;
+            Float x0 = p0.first;
+            Float x1 = p0.first;
 
-            for (double y = p0.second; y <= p1.second; y += 0.5)
+            for (Float y = p0.second; y <= p1.second; y += half)
             {
                canvas.horiztonal_line_segment(x0, x1, y);
 
@@ -196,13 +214,13 @@ public:
 
          void top(const point_t& p0, const point_t& p1, const point_t& p2)
          {
-            const double m0 = (p2.first - p0.first) / (2.0 * (p2.second - p0.second));
-            const double m1 = (p2.first - p1.first) / (2.0 * (p2.second - p1.second));
+            const Float m0 = (p2.first - p0.first) / (two * (p2.second - p0.second));
+            const Float m1 = (p2.first - p1.first) / (two * (p2.second - p1.second));
 
-            double x0 = p2.first;
-            double x1 = p2.first;
+            Float x0 = p2.first;
+            Float x1 = p2.first;
 
-            for (double y = p2.second; y >= p0.second; y -= 0.5)
+            for (Float y = p2.second; y >= p0.second; y -= half)
             {
                canvas.horiztonal_line_segment(x0, x1, y);
 
@@ -213,8 +231,6 @@ public:
       };
 
       draw_modes dm(*this);
-
-      const double eps = 0.00001;
 
       if (std::abs(p[1].second - p[2].second) < eps)
          dm.bottom(p[0], p[1], p[2]);
@@ -232,30 +248,30 @@ public:
       }
    }
 
-   void fill_quadix(double x1, double y1, double x2, double y2, double x3, double y3, double x4, double y4)
+   void fill_quadix(Float x1, Float y1, Float x2, Float y2, Float x3, Float y3, Float x4, Float y4)
    {
       fill_triangle(x1, y1, x2, y2, x3, y3);
       fill_triangle(x1, y1, x3, y3, x4, y4);
    }
 
-   void fill_circle(double cx, double cy, double radius)
+   void fill_circle(Float cx, Float cy, Float radius)
    {
-      const double delta = 1.0;
-      double  x = radius;
-      double  y = 0.0;
-      double dx = delta - (2.0 * delta * radius);
-      double dy = 0.0;
-      double dr = 0.0;
+      const Float delta = one;
+      Float  x = radius;
+      Float  y = zero;
+      Float dx = delta - (two * delta * radius);
+      Float dy = zero;
+      Float dr = zero;
 
       while (x >= y)
       {
-         for (double i = cx - x; i <= cx + x; i += delta)
+         for (Float i = cx - x; i <= cx + x; i += delta)
          {
             horiztonal_line_segment(cx - x, cx + x, cy + y);
             horiztonal_line_segment(cx - x, cx + x, cy - y);
          }
 
-         for (double i = cx - y; i <= cx + y; i += delta)
+         for (Float i = cx - y; i <= cx + y; i += delta)
          {
             horiztonal_line_segment(cx - y, cx + y, cy + x);
             horiztonal_line_segment(cx - y, cx + y, cy - x);
@@ -264,18 +280,18 @@ public:
          y += delta;
 
          dr += dy;
-         dy += 2.0 * delta;
+         dy += two * delta;
 
-         if ((2.0 * delta * dr + dx) > 0)
+         if ((two * delta * dr + dx) > 0)
          {
              x -= delta;
             dr +=  dx;
-            dx += 2.0 * delta;
+            dx += two * delta;
          }
       }
    }
 
-   void plot_pen_pixel(double x, double y)
+   void plot_pen_pixel(Float x, Float y)
    {
       if ((x < min_x_) || (x > max_x_)) return;
       if ((y < min_y_) || (y > max_y_)) return;
@@ -286,7 +302,7 @@ public:
       draw_.plot_pen_pixel(sc_x, sc_y);
    }
 
-   void plot_pixel(double x, double y)
+   void plot_pixel(Float x, Float y)
    {
       if ((x < min_x_) || (x > max_x_)) return;
       if ((y < min_y_) || (y > max_y_)) return;
@@ -302,48 +318,40 @@ public:
       draw_.pen_width(width);
    }
 
-   void pen_color(const unsigned char&   red,
-                  const unsigned char& green,
-                  const unsigned char&  blue)
+   void pen_color(const pixel_t color)
    {
-      draw_.pen_color(red,green,blue);
+      draw_.pen_color(color);
    }
 
-   template <typename RGB>
-   void pen_color(const RGB colour)
-   {
-      draw_.pen_color(colour);
-   }
-
-   const bitmap_image& image() const
+   const BitmapImageType& image() const
    {
       return image_;
    }
 
-   bitmap_image& image()
+   BitmapImageType& image()
    {
       return image_;
    }
 
-   void set_widthheight(const double x_length, const double y_length)
+   void set_widthheight(const Float x_length, const Float y_length)
    {
       setup_canvas(x_length, y_length);
    }
 
-   double min_x() const { return min_x_; }
-   double min_y() const { return min_y_; }
-   double max_x() const { return max_x_; }
-   double max_y() const { return max_y_; }
+   Float min_x() const { return min_x_; }
+   Float min_y() const { return min_y_; }
+   Float max_x() const { return max_x_; }
+   Float max_y() const { return max_y_; }
 
 private:
 
-   void setup_canvas(const double x_length, const double y_length)
+   void setup_canvas(const Float x_length, const Float y_length)
    {
-      if ((x_length < 2.0) || (y_length < 2.0))
+      if ((x_length < two) || (y_length < two))
          return;
 
-      width_div2_  = x_length / 2.0;
-      height_div2_ = y_length / 2.0;
+      width_div2_  = x_length / two;
+      height_div2_ = y_length / two;
 
       min_x_ = -width_div2_ ;
       min_y_ = -height_div2_;
@@ -352,29 +360,31 @@ private:
 
       image_.setwidth_height(static_cast<unsigned int>(x_length) + 1, static_cast<unsigned int>(y_length) + 1);
 
-      image_.clear(0xFF);
+      pixel_t color;
+      set_white(color);
+      image_.clear(color);
    }
 
-   double clamp_x(const double& x)
+   Float clamp_x(const Float& x) const
    {
            if (x < min_x_)  return min_x_;
       else if (x > max_x_)  return max_x_;
       else                  return x;
    }
 
-   double clamp_y(const double& y)
+   Float clamp_y(const Float& y) const
    {
            if (y < min_y_)  return min_y_;
       else if (y > max_y_)  return max_y_;
       else                  return y;
    }
 
-   double cart_to_screen_x(const double& x)
+   Float cart_to_screen_x(const Float& x) const
    {
       return x + width_div2_;
    }
 
-   double cart_to_screen_y(const double& y)
+   Float cart_to_screen_y(const Float& y) const
    {
       return height_div2_ - y;
    }
@@ -388,9 +398,9 @@ private:
    };
 
    int out_code(
-                 const double&  x, const double&  y,
-                 const double& x1, const double& y1,
-                 const double& x2, const double& y2
+                 const Float&  x, const Float&  y,
+                 const Float& x1, const Float& y1,
+                 const Float& x2, const Float& y2
                )
    {
       int result = 0;
@@ -403,11 +413,11 @@ private:
       return result;
    }
 
-   bool clip(double& x1, double& y1, double& x2, double& y2)
+   bool clip(Float& x1, Float& y1, Float& x2, Float& y2)
    {
       bool   result = false;
-      double x      = 0.0;
-      double y      = 0.0;
+      Float x      = zero;
+      Float y      = zero;
 
       int outcode0   = out_code(x1, y1, min_x_, min_y_, max_x_, max_y_);
       int outcode1   = out_code(x2, y2, min_x_, min_y_, max_x_, max_y_);
@@ -424,8 +434,8 @@ private:
             else
                outcodeout = outcode1;
 
-            double dx = (x2 - x1);
-            double dy = (y2 - y1);
+            Float dx = (x2 - x1);
+            Float dy = (y2 - y1);
 
             if ((outcodeout & e_clip_bottom) == e_clip_bottom)
             {
@@ -469,14 +479,14 @@ private:
    cartesian_canvas(const cartesian_canvas&);
    cartesian_canvas operator=(const cartesian_canvas&);
 
-   double width_div2_;
-   double height_div2_;
-   double min_x_;
-   double min_y_;
-   double max_x_;
-   double max_y_;
-   bitmap_image image_;
-   image_drawer draw_;
+   Float width_div2_;
+   Float height_div2_;
+   Float min_x_;
+   Float min_y_;
+   Float max_x_;
+   Float max_y_;
+   BitmapImageType image_;
+   image_drawer<BitmapImageType> draw_;
 };
 
 }
