@@ -23,6 +23,7 @@ Thus, it's header-only.
 * splitted/organized single header into multiple headers in `offscr_bmp_drw/` directory
 * added (still) minimalistic cmake support
 * moved all classes/functions into namespace `OffScreenBitmapDraw`
+* added zingl_image_drawer and templates for setting or adding pixels - later one for building heatmaps
 * other incompatible changes planned!
 
 
@@ -33,4 +34,6 @@ Thus, it's header-only.
   * https://github.com/adafruit/Adafruit-GFX-Library
 * Simple C++ off screen raster graphics library
   * https://github.com/richmit/mraster
-
+* Bresenham Code/Site of Alois Zingl
+  * https://zingl.github.io/bresenham.html
+  * https://github.com/zingl/Bresenham

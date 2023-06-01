@@ -77,6 +77,16 @@ struct alignas(unsigned char) rgb_t
     component  blue;
 };
 
+template <class RGBColorType>
+RGBColorType scale_rgb(RGBColorType c, float s) {
+    RGBColorType ret = c;
+    ret.red   = static_cast<typename RGBColorType::component>(s * c.red  );
+    ret.green = static_cast<typename RGBColorType::component>(s * c.green);
+    ret.blue  = static_cast<typename RGBColorType::component>(s * c.blue );
+    return ret;
+}
+
+
 rgb_t::component * begin(rgb_t &c) { return &c.red; }
 rgb_t::component * end(rgb_t &c)   { return begin(c) + 3; }
 const rgb_t::component * begin(const rgb_t &c) { return &c.red; }
@@ -92,7 +102,9 @@ const rgb_t::component * blue (const rgb_t &c) { return &c.blue;  }
 rgb_t &set_black(rgb_t &c) { c.red = c.green = c.blue = 0x0;  return c; }
 rgb_t &set_white(rgb_t &c) { c.red = c.green = c.blue = 0xFF; return c; }
 rgb_t &set_gray(rgb_t &c, rgb_t::component g) { c.red = c.green = c.blue = g; return c; }
+rgb_t &set_gray(rgb_t &c, float g) { c.red = c.green = c.blue = rgb_t::component(255.99F * g); return c; }
 rgb_t &set_rgb(rgb_t &c, rgb_t::component r, rgb_t::component g, rgb_t::component b) { c.red = r; c.green = g; c.blue = b; return c; }
+rgb_t operator*(rgb_t c, float s) { return scale_rgb<rgb_t>(c, s); }
 
 
 
@@ -147,7 +159,9 @@ const bgr_t::component * blue (const bgr_t &c) { return &c.blue;  }
 bgr_t &set_black(bgr_t &c) { c.red = c.green = c.blue = 0x0;  return c; }
 bgr_t &set_white(bgr_t &c) { c.red = c.green = c.blue = 0xFF; return c; }
 bgr_t &set_gray(bgr_t &c, bgr_t::component g) { c.red = c.green = c.blue = g; return c; }
+bgr_t &set_gray(bgr_t &c, float g) { c.red = c.green = c.blue = bgr_t::component(255.99F * g); return c; }
 bgr_t &set_rgb(bgr_t &c, bgr_t::component r, bgr_t::component g, bgr_t::component b) { c.red = r; c.green = g; c.blue = b; return c; }
+bgr_t operator*(bgr_t c, float s) { return scale_rgb<bgr_t>(c, s); }
 
 
 
@@ -203,7 +217,9 @@ const rgba_t::component * blue (const rgba_t &c) { return &c.blue;  }
 rgba_t &set_black(rgba_t &c) { c.red = c.green = c.blue = 0x0;  c.alpha = 0x0; return c; }
 rgba_t &set_white(rgba_t &c) { c.red = c.green = c.blue = 0xFF; c.alpha = 0x0; return c; }
 rgba_t &set_gray(rgba_t &c, rgba_t::component g) { c.red = c.green = c.blue = g; c.alpha = 0x0; return c; }
+rgba_t &set_gray(rgba_t &c, float g) { c.red = c.green = c.blue = rgba_t::component(255.99F * g); return c; }
 rgba_t &set_rgb(rgba_t &c, rgba_t::component r, rgba_t::component g, rgba_t::component b) { c.red = r; c.green = g; c.blue = b; c.alpha = 0; return c; }
+rgba_t operator*(rgba_t c, float s) { return scale_rgb<rgba_t>(c, s); }
 
 
 
@@ -259,7 +275,9 @@ const abgr_t::component * blue (const abgr_t &c) { return &c.blue;  }
 abgr_t &set_black(abgr_t &c) { c.red = c.green = c.blue = 0x0;  c.alpha = 0x0; return c; }
 abgr_t &set_white(abgr_t &c) { c.red = c.green = c.blue = 0xFF; c.alpha = 0x0; return c; }
 abgr_t &set_gray(abgr_t &c, abgr_t::component g) { c.red = c.green = c.blue = g; c.alpha = 0x0; return c; }
+abgr_t &set_gray(abgr_t &c, float g) { c.red = c.green = c.blue = abgr_t::component(255.99F * g); return c; }
 abgr_t &set_rgb(abgr_t &c, abgr_t::component r, abgr_t::component g, abgr_t::component b) { c.red = r; c.green = g; c.blue = b; c.alpha = 0; return c; }
+abgr_t operator*(abgr_t c, float s) { return scale_rgb<abgr_t>(c, s); }
 
 
 
@@ -342,12 +360,12 @@ inline RGBColorType make_colour(const unsigned int& red, const unsigned int& gre
 template <typename OutputIterator, class RGBColorType = rgb_t, class Float = float>
 inline void generate_colours(const std::size_t& steps, const RGBColorType c0, const RGBColorType c1, OutputIterator out)
 {
-    const Float r0 = Float(  red(c0));
-    const Float g0 = Float(green(c0));
-    const Float b0 = Float( blue(c0));
-    const Float dr = ( Float(red(c1))   -  r0 ) / steps;
-    const Float dg = ( Float(green(c1)) -  g0 ) / steps;
-    const Float db = ( Float( blue(c1)) -  b0 ) / steps;
+    const Float r0 = Float(  *red(c0));
+    const Float g0 = Float(*green(c0));
+    const Float b0 = Float( *blue(c0));
+    const Float dr = ( Float(  *red(c1)) -  r0 ) / steps;
+    const Float dg = ( Float(*green(c1)) -  g0 ) / steps;
+    const Float db = ( Float( *blue(c1)) -  b0 ) / steps;
 
     for (std::size_t i = 0; i < steps; ++i)
     {

@@ -23,7 +23,7 @@
 #include <offscr_bmp_drw/bitmap_image_rgb.hpp>
 #include <offscr_bmp_drw/response_image.hpp>
 #include <offscr_bmp_drw/sobel.hpp>
-// #include <offscr_bmp_drw/convert.hpp>
+#include <offscr_bmp_drw/convert.hpp>
 // #include <offscr_bmp_drw/misc.hpp>
 
 #include <offscr_bmp_drw/colormaps.hpp>
@@ -32,6 +32,7 @@
 #include <offscr_bmp_drw/cartesian_canvas.hpp>
 #include <offscr_bmp_drw/plasma.hpp>
 #include <offscr_bmp_drw/checkered_pattern.hpp>
+#include <offscr_bmp_drw/zingl_image_drawer.hpp>
 
 #include <vector>
 
@@ -40,6 +41,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <string>
+#include <cassert>
 
 
 using namespace OffScreenBitmapDraw;
@@ -53,16 +55,19 @@ using BitmapImageFile = image_io<BitmapImage>;
 
 const std::string file_name("image.bmp");
 
+static rgb_t cmap[1000];   // generate in test18(), utilized also in test23()
 
-void test01()
+
+bool test01()
 {
     BitmapImage image = BitmapImageFile::load(file_name);
     if (!image)
     {
         printf("test01() - Error - Failed to open '%s'\n",file_name.c_str());
-        return;
+        return false;
     }
     BitmapImageFile::save(image, "test01_saved.bmp");
+    return true;
 }
 
 void test02()
@@ -305,7 +310,7 @@ void test14()
     BitmapImageFile::save(image, "test14_checkered_02.bmp");
 }
 
-void test15()
+void test15(bool save_as_input = false)
 {
     BitmapImage image(1024,1024);
     image.clear();
@@ -323,7 +328,7 @@ void test15()
         c1, c2, c3, c4,
         Float(3), jet_colormap
         );
-    BitmapImageFile::save(image, "test15_plasma.bmp");
+    BitmapImageFile::save(image, save_as_input ? file_name : "test15_plasma.bmp");
 }
 
 void test16()
@@ -392,10 +397,34 @@ void test17()
 void test18()
 {
     constexpr int h_per_color = 50;
+    constexpr int n_colormaps = 10;
+
     {
-        BitmapImage image(1000, 9 * h_per_color);
+        constexpr int num_colors = 6;
+        int nc[num_colors - 1] = { 40, 60, 300, 300, 300 };
+        rgb_t c[num_colors];
+        set_rgb(c[0], 0, 0, 0);  // black
+        set_rgb(c[1], 10, 10, 128);  // blue
+        set_rgb(c[2], 10, 50, 192); // blue -> green
+        set_rgb(c[3], 50, 192, 50);   // green
+        set_rgb(c[4], 255, 255, 0);   // yellow
+        set_rgb(c[5], 255, 0, 0);       // red
+
+        int next = 0;
+
+        for (int k = 0; k < num_colors - 1; ++k)
+        {
+            assert( next + nc[k] <= 1000 );
+            generate_colours<rgb_t*, rgb_t, float>(nc[k], c[k], c[k+1], &cmap[next]);
+            next = next + nc[k];
+        }
+        assert( next == 1000 );
+    }
+
+    {
+        BitmapImage image(1000, n_colormaps * h_per_color);
         image_drawer<BitmapImage> draw(image);
-        const rgb_t* colormap[9] = {
+        const rgb_t* colormap[n_colormaps] = {
                                    autumn_colormap,
                                    copper_colormap,
                                      gray_colormap,
@@ -404,12 +433,13 @@ void test18()
                                       jet_colormap,
                                     prism_colormap,
                                       vga_colormap,
-                                     yarg_colormap
+                                     yarg_colormap,
+                                              cmap
                                  };
 
         for (unsigned int i = 0; i < image.width(); ++i)
         {
-            for (unsigned int j = 0; j < 9; ++j)
+            for (unsigned int j = 0; j < n_colormaps; ++j)
             {
                 draw.pen_color( colormap[j][i] );
                 draw.vertical_line_segment(j * h_per_color, (j + 1) * h_per_color, i);
@@ -689,31 +719,243 @@ void test22()
     BitmapImageFile::save(sobel_img, "test22_image_sobel.bmp");
 }
 
+static inline int rand_normal(float scale)
+{
+    return int( ::rand() * scale + ::rand() * scale + ::rand() * scale );
+}
+
+static inline std::pair<int, int> randn_point(int x0, int y0, float scale)
+{
+    return { x0 + rand_normal(scale), y0 + rand_normal(scale) };
+}
+
+void test23()
+{
+    constexpr int dim = 200;
+    using Point = std::pair<int, int>;
+    {
+        BitmapImage image(dim, dim);
+        using Drawer = zingl_image_drawer<BitmapImage>;
+        using Setter = Drawer::PixelSetter;
+        image.clear({20, 20, 20});
+        Drawer draw(image);
+        draw.plotLine<Setter>(0, 2, dim - 1, dim - 3, {255, 255, 0});
+        draw.plotLine<Setter>(2, 0, dim - 3, dim - 1, {255, 0, 0});
+        BitmapImageFile::save(image, "test23_zingl_drawer-0_rgb.bmp");
+    }
+
+    {
+        using rgb_pixel_t = bgr_t;
+        using BitmapRGBImage = bitmap_image_rgb<rgb_pixel_t>;
+        using BitmapImageFile = image_io<BitmapRGBImage>;
+        BitmapRGBImage rgb_image(dim, dim);
+
+        using BitmapFloatImage = bitmap_image_rgb<float>;
+        using Drawer = zingl_image_drawer<BitmapFloatImage>;
+        using Setter = Drawer::PixelAdder;  // previous was: Drawer::PixelSetter;
+
+        BitmapFloatImage float_image(dim, dim);
+        Drawer draw(float_image);
+
+        auto convert = [&]() -> BitmapRGBImage& {
+            convert_float_to_rgb<rgb_t, BitmapFloatImage, BitmapRGBImage>(
+                float_image, rgb_image,
+                cmap, // generated in test18()  // jet_colormap or yarg_colormap
+                (sizeof(cmap) / sizeof(cmap[0])),
+                0.75F, false    // 0.75 makes red more often: sort of clipping
+                );
+            return rgb_image;
+        };
+
+        const int n_lines = 300;
+        const int x_p0 = dim / 4;
+        const int x_p1 = dim - x_p0;
+        const int y_p = dim / 2;
+        const int distort = dim / 10;
+        const int distort_off = (distort * 3) / 2;
+        const float distort_scale = float(distort) / float(RAND_MAX -1);
+
+        Point p0, p1{ x_p0, y_p };
+
+        float_image.clear(0.1F);
+        for (int k = 0; k < n_lines; ++k)
+        {
+            p0 = p1;
+            p1 = randn_point(x_p1 - distort_off, y_p - distort_off, distort_scale);
+            draw.plotLine<Setter>(p0, p1, 0.1F);
+            p0 = p1;
+            p1 = randn_point(x_p0 - distort_off, y_p - distort_off, distort_scale);
+            draw.plotLine<Setter>(p0, p1, 0.1F);
+        }
+        BitmapImageFile::save(convert(), "test23_zingl_drawer-1_float_as_rgb_lines.bmp");
+
+        float_image.clear(0.1F);
+        for (int k = 0; k < n_lines; ++k)
+        {
+            p1 = randn_point(x_p1 - distort_off, y_p - distort_off, distort_scale);
+            draw.plotCross<Setter>(p1, 0.1F);
+            p1 = randn_point(x_p0 - distort_off, y_p - distort_off, distort_scale);
+            draw.plotCross<Setter>(p1, 0.1F);
+        }
+        BitmapImageFile::save(convert(), "test23_zingl_drawer-2_float_as_rgb_cross.bmp");
+
+        float_image.clear(0.1F);
+        for (int k = 0; k < n_lines; ++k)
+        {
+            p1 = randn_point(x_p1 - distort_off, y_p - distort_off, distort_scale);
+            draw.plotPoint<Setter>(p1, 0.1F);
+            p1 = randn_point(x_p0 - distort_off, y_p - distort_off, distort_scale);
+            draw.plotPoint<Setter>(p1, 0.1F);
+        }
+        BitmapImageFile::save(convert(), "test23_zingl_drawer-3_float_as_rgb_points.bmp");
+    }
+}
+
+void test24()
+{
+    constexpr int dim = 180;
+    {
+        BitmapImage image(dim, dim);
+        using Drawer = zingl_image_drawer<BitmapImage>;
+        using Setter = Drawer::PixelSetter;
+        image.clear({20, 20, 20});
+        Drawer draw(image);
+
+        draw.plotLineWidth<Setter>({10,  10}, {dim - 10,  11}, 2.0F, {255, 0, 0});
+        draw.plotLineWidth<Setter>({10,  20}, {dim - 10,  30}, 2.0F, {0, 255, 0});
+        draw.plotLineWidth<Setter>({10,  40}, {dim - 10,  60}, 3.0F, {0, 0, 255});
+        draw.plotLineWidth<Setter>({10,  70}, {dim - 10, 100}, 4.0F, {255, 255, 0});
+        draw.plotLineWidth<Setter>({10, 110}, {dim - 10, 150}, 5.0F, {0, 255, 255});
+        BitmapImageFile::save(image, "test24_zingl_draw-lines-0_rgb.bmp");
+    }
+
+    {
+        using rgb_pixel_t = bgr_t;
+        using BitmapRGBImage = bitmap_image_rgb<rgb_pixel_t>;
+        using BitmapImageFile = image_io<BitmapRGBImage>;
+        BitmapRGBImage rgb_image(dim, dim);
+
+        using BitmapFloatImage = bitmap_image_rgb<float>;
+        using Drawer = zingl_image_drawer<BitmapFloatImage>;
+        //using Setter = Drawer::PixelAdder;  // previous was: Drawer::PixelSetter;
+        using Setter = Drawer::PixelSetter;
+
+        BitmapFloatImage float_image(dim, dim);
+        Drawer draw(float_image);
+
+        auto convert = [&]() -> BitmapRGBImage& {
+            convert_float_to_rgb<rgb_t, BitmapFloatImage, BitmapRGBImage>(
+                float_image, rgb_image,
+                cmap, // generated in test18()  // jet_colormap or yarg_colormap
+                (sizeof(cmap) / sizeof(cmap[0])),
+                0.75F, false    // 0.75 makes red more often: sort of clipping
+                );
+            return rgb_image;
+        };
+
+        float_image.clear(0.1F);
+        draw.plotLineWidth<Setter>({10,  10}, {dim - 10,  11}, 2.0F, 0.2F);
+        draw.plotLineWidth<Setter>({10,  20}, {dim - 10,  30}, 2.0F, 0.2F);
+        draw.plotLineWidth<Setter>({10,  40}, {dim - 10,  60}, 3.0F, 0.2F);
+        draw.plotLineWidth<Setter>({10,  70}, {dim - 10, 100}, 4.0F, 0.2F);
+        draw.plotLineWidth<Setter>({10, 110}, {dim - 10, 150}, 5.0F, 0.2F);
+        BitmapImageFile::save(convert(), "test24_zingl_draw-lines-1_float_as_rgb.bmp");
+    }
+}
+
+void test25()
+{
+    constexpr int dim = 600;
+    constexpr int d2 = dim/2, d4 = dim/4;
+    constexpr int rA = dim/6, rB = dim/15;
+    {
+        BitmapImage image(dim, dim);
+        using Drawer = zingl_image_drawer<BitmapImage>;
+        using Setter = Drawer::PixelSetter;
+        image.clear({20, 20, 20});
+        Drawer draw(image);
+
+        draw.plotEllipse<Setter>( {d4, d4}, {rA, rB}, {255, 0, 0});
+        draw.plotOptimizedEllipse<Setter>( {d2 +d4, d4}, {rB, rA}, {0, 255, 0});
+        const int xm = d4;
+        const int ym = d2 +d4;
+        draw.plotEllipseRect<Setter>({xm -rA, ym -rB}, {xm +rA, ym +rB}, {0, 0, 255});
+        draw.plotCircle<Setter>({d2 +xm, ym}, rA, {255, 255, 0});
+        BitmapImageFile::save(image, "test25_zingl_draw-ellipses-circle-0_rgb.bmp");
+    }
+
+    {
+        using rgb_pixel_t = bgr_t;
+        using BitmapRGBImage = bitmap_image_rgb<rgb_pixel_t>;
+        using BitmapImageFile = image_io<BitmapRGBImage>;
+        BitmapRGBImage rgb_image(dim, dim);
+
+        using BitmapFloatImage = bitmap_image_rgb<float>;
+        using Drawer = zingl_image_drawer<BitmapFloatImage>;
+        using Setter = Drawer::PixelAdder;  // previous was: Drawer::PixelSetter;
+
+        BitmapFloatImage float_image(dim, dim);
+        Drawer draw(float_image);
+
+        auto convert = [&]() -> BitmapRGBImage& {
+            convert_float_to_rgb<rgb_t, BitmapFloatImage, BitmapRGBImage>(
+                float_image, rgb_image,
+                cmap, // generated in test18()  // jet_colormap or yarg_colormap
+                (sizeof(cmap) / sizeof(cmap[0])),
+                0.75F, false    // 0.75 makes red more often: sort of clipping
+                );
+            return rgb_image;
+        };
+
+        float_image.clear(0.1F);
+        draw.plotEllipse<Setter>( {d4, d4}, {rA, rB}, 0.2F);
+        draw.plotOptimizedEllipse<Setter>( {d2 +d4, d4}, {rB, rA}, 0.2F);
+        const int xm = d4;
+        const int ym = d2 + d4;
+        draw.plotEllipseRect<Setter>({xm -rA, ym -rB}, {xm +rA, ym +rB}, 0.2F);
+        draw.plotCircle<Setter>({d2 +xm, ym}, rA, 0.2F);
+        BitmapImageFile::save(convert(), "test25_zingl_draw-ellipses-circle-1_float_as_rgb.bmp");
+    }
+}
+
 
 int main()
 {
-    test01();
-    test02();
-    test03();
-    test04();
-    test05();
-    test06();
-    test07();
-    test08();
+    bool loadOK = test01();
+    if (!loadOK)
+    {
+        fprintf(stderr, "Note: Many of the tests need a bitmap image with the filename '%s'\n", file_name.c_str());
+        fprintf(stderr, "is required. If not present these tests would fail!\n");
+        fprintf(stderr, "generating plasma (test15) and using that file ..\n");
+        test15(true);
+        loadOK = test01();
+        if (!loadOK)
+            fprintf(stderr, "Error generating or loading generade file!\n");
+    }
+    if (loadOK) test02();
+    if (loadOK) test03();
+    if (loadOK) test04();
+    if (loadOK) test05();
+    if (loadOK) test06();
+    if (loadOK) test07();
+    if (loadOK) test08();
     test09();
-    test10();
-    test11();
-    test12();
-    test13();
+    if (loadOK) test10();
+    if (loadOK) test11();
+    if (loadOK) test12();
+    if (loadOK) test13();
     test14();
     test15();
-    test16();
+    if (loadOK) test16();
     test17();
     test18();
     test19();
     test20();
     test21();
-    test22();
+    if (loadOK) test22();
+    test23();
+    test24();
+    test25();
 
     rgba_t colortab_unpacked[10];
     rgb_t colortab_packed[10];
@@ -725,9 +967,3 @@ int main()
 
     return 0;
 }
-
-
-/*
-   Note: In some of the tests a bitmap image by the name of 'image.bmp'
-         is required. If not present the test will fail.
-*/

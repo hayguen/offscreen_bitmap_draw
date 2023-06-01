@@ -54,6 +54,7 @@ set( OFFSCR_BMP_DRW_HEADERS
   include/offscr_bmp_drw/colors.hpp
   include/offscr_bmp_drw/convert.hpp
   include/offscr_bmp_drw/image_drawer.hpp
+  include/offscr_bmp_drw/zingl_image_drawer.hpp
   include/offscr_bmp_drw/misc.hpp
   include/offscr_bmp_drw/plasma.hpp
   include/offscr_bmp_drw/response_image.hpp
