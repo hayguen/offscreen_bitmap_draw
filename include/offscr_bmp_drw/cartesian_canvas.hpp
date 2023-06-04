@@ -313,7 +313,7 @@ public:
       draw_.plot_pixel(sc_x, sc_y);
    }
 
-   void pen_width(const unsigned int& width)
+   void pen_width(const unsigned width)
    {
       draw_.pen_width(width);
    }
@@ -358,7 +358,7 @@ private:
       max_x_ =  width_div2_ ;
       max_y_ =  height_div2_;
 
-      image_.setwidth_height(static_cast<unsigned int>(x_length) + 1, static_cast<unsigned int>(y_length) + 1);
+      image_.setwidth_height(static_cast<unsigned>(x_length) + 1, static_cast<unsigned>(y_length) + 1);
 
       pixel_t color;
       set_white(color);

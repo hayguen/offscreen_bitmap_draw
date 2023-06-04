@@ -44,6 +44,8 @@ private:
     using bitmap_image_generic<PixelType>::height_;
     using bitmap_image_generic<PixelType>::row_increment_;
     using bitmap_image_generic<PixelType>::data_;
+    using bitmap_image_generic<PixelType>::data_end_;
+    using bitmap_image_generic<PixelType>::data_vec_;
 
 public:
     static constexpr double r_to_gray = 0.299;
@@ -52,7 +54,7 @@ public:
     //                          carry = 1 22
     //                            sum = 1.000
 
-    static constexpr unsigned int bytes_per_pixel_ = sizeof(PixelType);
+    static constexpr unsigned bytes_per_pixel_ = sizeof(PixelType);
     using pixel_t = PixelType;
     using component_t = ColorComponentType;
     using Type = bitmap_image_rgb<PixelType, ColorComponentType, Float>;
@@ -75,14 +77,27 @@ public:
     : bitmap_image_generic<PixelType>()
     {}
 
-    bitmap_image_rgb(const unsigned int width, const unsigned int height)
-    : bitmap_image_generic<PixelType>(width, height)
+    bitmap_image_rgb(const unsigned width, const unsigned height, const unsigned row_inc = 0)
+    : bitmap_image_generic<PixelType>(width, height, row_inc)
     {
-        create_bitmap();
     }
 
     bitmap_image_rgb(const Type & image)
-    : bitmap_image_generic<PixelType>(image)
+        : bitmap_image_rgb()
+    {
+        *this = image;
+    }
+
+    // generates a "slice" - without own data!
+    bitmap_image_rgb(
+        const Slice slice,
+        Type& image,
+        const int x,
+        const int y,
+        const int w = 0,
+        const int h = 0
+        )
+        : bitmap_image_generic<PixelType>(slice, image, x, y, w, h)
     {
     }
 
@@ -102,32 +117,32 @@ public:
 
     const pixel_t * pixel_cbegin() const
     {
-        return data_.data();
+        return data_;
     }
 
     const pixel_t * pixel_cend() const
     {
-        return data_.data() + data_.size();
+        return data_end_;
     }
 
     const pixel_t * pixel_clast() const
     {
-        return data_.data() + data_.size() - 1;
+        return data_end_ - 1;
     }
 
     pixel_t * pixel_begin()
     {
-        return data_.data();
+        return data_;
     }
 
     pixel_t * pixel_end()
     {
-        return data_.data() + data_.size();
+        return data_end_;
     }
 
     pixel_t * pixel_last()
     {
-        return data_.data() + data_.size() - 1;
+        return data_end_ - 1;
     }
 
     const component_t * char_cbegin() const
@@ -150,47 +165,13 @@ public:
         return end(*pixel_last());
     }
 
-#if 0
-   inline component_t red_channel(const unsigned int x, const unsigned int y) const
-   {
-      return get_pixel(x, y).red;
-   }
-
-   inline component_t green_channel(const unsigned int x, const unsigned int y) const
-   {
-      return get_pixel(x, y).green;
-   }
-
-   inline component_t blue_channel (const unsigned int x, const unsigned int y) const
-   {
-      return get_pixel(x, y).blue;
-   }
-
-   inline void red_channel(const unsigned int x, const unsigned int y, const component_t value)
-   {
-      pixel(x, y).red = value;
-   }
-
-   inline void green_channel(const unsigned int x, const unsigned int y, const component_t value)
-   {
-      pixel(x, y).green = value;
-   }
-
-   inline void blue_channel(const unsigned int x, const unsigned int y, const component_t value)
-   {
-      pixel(x, y).blue = value;
-   }
-#endif
-
-    // inline unsigned char* row(unsigned int row_index) const
-
-    inline const pixel_t & get_pixel(const unsigned int x, const unsigned int y) const
+    inline const pixel_t & get_pixel(const unsigned x, const unsigned y) const
     {
         return pixel(x, y);
     }
 
     inline void get_pixel(
-        const unsigned int x, const unsigned int y,
+        const unsigned x, const unsigned y,
         component_t& red,
         component_t& green,
         component_t& blue
@@ -203,7 +184,7 @@ public:
     }
 
     inline void set_pixel(
-        const unsigned int x, const unsigned int y,
+        const unsigned x, const unsigned y,
         const component_t red,
         const component_t green,
         const component_t blue
@@ -215,65 +196,21 @@ public:
         color.red = red;
     }
 
-    // template <typename RGB>
-    // inline void get_pixel(const unsigned int x, const unsigned int y, RGB& colour) const
-    // {
-    //    get_pixel(x, y, colour.red, colour.green, colour.blue);
-    // }
-
-    // template <typename RGB>
-    // inline void set_pixel(const unsigned int x, const unsigned int y, const RGB& colour)
-    // {
-    //    set_pixel(x, y, colour.red, colour.green, colour.blue);
-    // }
-
-    //inline pixel_t get_pixel(const unsigned int x, const unsigned int y) const
-
-
-
-    // inline bool copy_from(const Type& image)
-    // inline bool copy_from(const Type& source_image, const unsigned int& x_offset, const unsigned int& y_offset)
-    // inline bool region(const unsigned int& x     ,
-    //                    const unsigned int& y     ,
-    //                    const unsigned int& width ,
-    //                    const unsigned int& height,
-    //                    bitmap_image& dest_image  ) const
-    // inline bool roi_from_center(const unsigned int& cx    ,
-    //                             const unsigned int& cy    ,
-    //                             const unsigned int& width ,
-    //                             const unsigned int& height,
-    //                             bitmap_image& dest_image  ) const
-
-#if 0
-   inline bool set_region(const unsigned int&  x     ,
-                          const unsigned int&  y     ,
-                          const unsigned int&  width ,
-                          const unsigned int&  height,
-                          const component_t& value )
-   {
-      pixel_t color;
-      color.red = value;
-      color.green = value;
-      color.blue = value;
-
-      return set_region(x, y, width, height, color);
-   }
-#endif
-
     inline bool set_region(
-        const unsigned int&  x,
-        const unsigned int&  y,
-        const unsigned int&  width,
-        const unsigned int&  height,
-        const color_plane    color,
-        const component_t& value )
+        const unsigned x,
+        const unsigned y,
+        const unsigned width,
+        const unsigned height,
+        const color_plane color,
+        const component_t value
+        )
     {
         if ((x + width ) > width_ ) { return false; }
         if ((y + height) > height_) { return false; }
 
-        const unsigned int color_plane_offset = offset(color);
+        const unsigned color_plane_offset = offset(color);
 
-        for (unsigned int r = 0; r < height; ++r)
+        for (unsigned r = 0; r < height; ++r)
         {
             component_t* itr     = begin(pixel(x, r + y)) + color_plane_offset;
             component_t* itr_end = itr + (width * bytes_per_pixel_);
@@ -286,35 +223,18 @@ public:
         return true;
     }
 
-#if 0
-   inline bool set_region(const unsigned int&  x     ,
-                          const unsigned int&  y     ,
-                          const unsigned int&  width ,
-                          const unsigned int&  height,
-                          const component_t& red   ,
-                          const component_t& green ,
-                          const component_t& blue  )
-   {
-      pixel_t color;
-      color.red = red;
-      color.green = green;
-      color.blue = blue;
-      return set_region(x, y, width, height, color);
-   }
-#endif
-
     inline bool set_region(
-        const unsigned int&  x,
-        const unsigned int&  y,
-        const unsigned int&  width,
-        const unsigned int&  height,
-        const pixel_t& color
+        const unsigned x,
+        const unsigned y,
+        const unsigned width,
+        const unsigned height,
+        const pixel_t color
         )
     {
         if ((x + width ) > width_ ) { return false; }
         if ((y + height) > height_) { return false; }
 
-        for (unsigned int r = 0; r < height; ++r)
+        for (unsigned r = 0; r < height; ++r)
         {
             pixel_t * itr     = &pixel(x, r + y);
             pixel_t * itr_end = itr + width;
@@ -327,24 +247,12 @@ public:
         return true;
     }
 
-
-    //void reflective_image(bitmap_image& image, const bool include_diagnols = false)
-
-    // inline unsigned int width() const
-    // inline unsigned int height() const
-
-    static inline unsigned int bytes_per_pixel()
+    static inline unsigned bytes_per_pixel()
     {
         return bytes_per_pixel_;
     }
 
-    // inline unsigned int pixel_count() const
-
-    // inline void setwidth_height(const unsigned int width,
-    //                             const unsigned int height,
-    //                             const bool clear = false)
-
-    inline Type & set_all_ith_bits_low(const unsigned int bitr_index)
+    inline Type & set_all_ith_bits_low(const unsigned bitr_index)
     {
         const component_t mask = static_cast<component_t>(~(1 << bitr_index));
         for (component_t* itr = char_begin(); itr != char_end(); ++itr)
@@ -354,7 +262,7 @@ public:
         return *this;
     }
 
-    inline Type & set_all_ith_bits_high(const unsigned int bitr_index)
+    inline Type & set_all_ith_bits_high(const unsigned bitr_index)
     {
         const component_t mask = static_cast<component_t>(1 << bitr_index);
         for (component_t* itr = char_begin(); itr != char_end(); ++itr)
@@ -364,7 +272,7 @@ public:
         return *this;
     }
 
-    inline Type & set_all_ith_channels(const unsigned int& channel, const component_t value)
+    inline Type & set_all_ith_channels(const unsigned channel, const component_t value)
     {
         for (component_t* itr = char_begin() + channel; itr < char_end(); itr += bytes_per_pixel_ )
         {
@@ -382,7 +290,7 @@ public:
         return *this;
     }
 
-    inline Type & ror_channel(const color_plane color, const unsigned int ror)
+    inline Type & ror_channel(const color_plane color, const unsigned ror)
     {
         for (component_t* itr = char_begin() + offset(color); itr < char_end(); itr += bytes_per_pixel_ )
         {
@@ -399,16 +307,6 @@ public:
         }
         return *this;
     }
-
-#if 0
-   inline void set_all_channels(const component_t r_value,
-                                const component_t g_value,
-                                const component_t b_value)
-   {
-      const pixel_t color{r_value,g_value,b_value};
-      clear(color);
-   }
-#endif
 
     inline Type & invert_color_planes()
     {
@@ -442,59 +340,9 @@ public:
         return *this;
     }
 
-    //inline const unsigned char* data() const
-    //{
-    //    return char_begin();
-    //}
-    //
-    //inline unsigned char* data()
-    //{
-    //    return char_begin();
-    //}
-
-    //inline unsigned char* data()
-
-    //inline void bgr_to_rgb()
-    //{
-    //   if ((bgr_mode == channel_mode_) && (3 == bytes_per_pixel_))
-    //   {
-    //      reverse_channels();
-    //      channel_mode_ = rgb_mode;
-    //   }
-    //}
-
-    //inline void rgb_to_bgr()
-    //{
-    //   if ((rgb_mode == channel_mode_) && (3 == bytes_per_pixel_))
-    //   {
-    //      reverse_channels();
-    //      channel_mode_ = bgr_mode;
-    //   }
-    //}
-
-    //inline void reverse()
-    //{
-    //   unsigned char* itr1 = data();
-    //   unsigned char* itr2 = end() - bytes_per_pixel_;
-
-    //   while (itr1 < itr2)
-    //   {
-    //      for (std::size_t i = 0; i < bytes_per_pixel_; ++i)
-    //      {
-    //         unsigned char* citr1 = itr1 + i;
-    //         unsigned char* citr2 = itr2 + i;
-
-    //         std::swap(*citr1,*citr2);
-    //      }
-
-    //      itr1 += bytes_per_pixel_;
-    //      itr2 -= bytes_per_pixel_;
-    //   }
-    //}
-
     inline Type & horizontal_flip()
     {
-        for (unsigned int y = 0; y < height_; ++y)
+        for (unsigned y = 0; y < height_; ++y)
         {
             pixel_t* itr1 = row(y);
             pixel_t* itr2 = itr1 + (width() -1);
@@ -510,7 +358,7 @@ public:
 
     inline Type & vertical_flip()
     {
-        for (unsigned int y = 0; y < (height_ / 2); ++y)
+        for (unsigned y = 0; y < (height_ / 2); ++y)
         {
             pixel_t* itr1 = row(y);
             pixel_t* itr2 = row(height_ - y - 1);
@@ -535,7 +383,7 @@ public:
     {
         if ( width_  != image.width_ || height_ != image.height_ )
         {
-            image.setwidth_height(width_,height_);
+            image.setwidth_height(width_, height_);
         }
         image.clear();
         const component_t* itr1 = char_cbegin() + offset(color);
@@ -627,16 +475,31 @@ public:
 
     inline void export_ycbcr(double* y, double* cb, double* cr) const
     {
+        using Flt = double;
         assert( width() == row_increment() );
         for (const pixel_t * itr = pixel_cbegin(); itr != pixel_cend(); ++itr )
         {
-            const double blue  = 1.0 * itr->blue;
-            const double green = 1.0 * itr->green;
-            const double red   = 1.0 * itr->red;
+            const Flt blue  = Flt(1) * itr->blue;
+            const Flt green = Flt(1) * itr->green;
+            const Flt red   = Flt(1) * itr->red;
+            *y ++ = clamp<Flt>( Flt( 16) + Flt(1)/256 * ( Flt( 65.738) * red + Flt(129.057) * green + Flt( 25.064) * blue), Flt(1), Flt(254) );
+            *cb++ = clamp<Flt>( Flt(128) + Flt(1)/256 * ( Flt(-37.945) * red + Flt(-74.494) * green + Flt(112.439) * blue), Flt(1), Flt(254) );
+            *cr++ = clamp<Flt>( Flt(128) + Flt(1)/256 * ( Flt(112.439) * red + Flt(-94.154) * green + Flt(-18.285) * blue), Flt(1), Flt(254) );
+        }
+    }
 
-            *y ++ = clamp<double>( 16.0 + (1.0/256.0) * (  65.738 * red + 129.057 * green +  25.064 * blue),1.0,254);
-            *cb++ = clamp<double>(128.0 + (1.0/256.0) * (- 37.945 * red -  74.494 * green + 112.439 * blue),1.0,254);
-            *cr++ = clamp<double>(128.0 + (1.0/256.0) * ( 112.439 * red -  94.154 * green -  18.285 * blue),1.0,254);
+    inline void export_ycbcr(float* y, float* cb, float* cr) const
+    {
+        using Flt = float;
+        assert( width() == row_increment() );
+        for (const pixel_t * itr = pixel_cbegin(); itr != pixel_cend(); ++itr )
+        {
+            const Flt blue  = Flt(1) * itr->blue;
+            const Flt green = Flt(1) * itr->green;
+            const Flt red   = Flt(1) * itr->red;
+            *y ++ = clamp<Flt>( Flt( 16) + Flt(1)/256 * ( Flt( 65.738) * red + Flt(129.057) * green + Flt( 25.064) * blue), Flt(1), Flt(254) );
+            *cb++ = clamp<Flt>( Flt(128) + Flt(1)/256 * ( Flt(-37.945) * red + Flt(-74.494) * green + Flt(112.439) * blue), Flt(1), Flt(254) );
+            *cr++ = clamp<Flt>( Flt(128) + Flt(1)/256 * ( Flt(112.439) * red + Flt(-94.154) * green + Flt(-18.285) * blue), Flt(1), Flt(254) );
         }
     }
 
@@ -700,15 +563,32 @@ public:
 
     inline Type & import_ycbcr(double* y, double* cb, double* cr)
     {
+        using Flt = double;
         assert( width() == row_increment() );
         for (pixel_t * itr = pixel_begin(); itr != pixel_end(); ++itr )
         {
-            double y_  =  (*y++);
-            double cb_ = (*cb++);
-            double cr_ = (*cr++);
-            itr->blue  = static_cast<unsigned char>(clamp((298.082 * y_ + 516.412 * cb_                 ) / 256.0 - 276.836,0.0,255.0));
-            itr->green = static_cast<unsigned char>(clamp((298.082 * y_ - 100.291 * cb_ - 208.120 * cr_ ) / 256.0 + 135.576,0.0,255.0));
-            itr->red   = static_cast<unsigned char>(clamp((298.082 * y_                 + 408.583 * cr_ ) / 256.0 - 222.921,0.0,255.0));
+            Flt y_  =  (*y++);
+            Flt cb_ = (*cb++);
+            Flt cr_ = (*cr++);
+            itr->blue  = static_cast<component_t>(clamp( (Flt(298.082) * y_ + Flt(516.412) * cb_                      ) / Flt(256) - Flt(276.836), Flt(0), Flt(255) ));
+            itr->green = static_cast<component_t>(clamp( (Flt(298.082) * y_ - Flt(100.291) * cb_ - Flt(208.120) * cr_ ) / Flt(256) + Flt(135.576), Flt(0), Flt(255) ));
+            itr->red   = static_cast<component_t>(clamp( (Flt(298.082) * y_                      + Flt(408.583) * cr_ ) / Flt(256) - Flt(222.921), Flt(0), Flt(255) ));
+        }
+        return *this;
+    }
+
+    inline Type & import_ycbcr(float* y, float* cb, float* cr)
+    {
+        using Flt = float;
+        assert( width() == row_increment() );
+        for (pixel_t * itr = pixel_begin(); itr != pixel_end(); ++itr )
+        {
+            Flt y_  =  (*y++);
+            Flt cb_ = (*cb++);
+            Flt cr_ = (*cr++);
+            itr->blue  = static_cast<component_t>(clamp( (Flt(298.082) * y_ + Flt(516.412) * cb_                      ) / Flt(256) - Flt(276.836), Flt(0), Flt(255) ));
+            itr->green = static_cast<component_t>(clamp( (Flt(298.082) * y_ - Flt(100.291) * cb_ - Flt(208.120) * cr_ ) / Flt(256) + Flt(135.576), Flt(0), Flt(255) ));
+            itr->red   = static_cast<component_t>(clamp( (Flt(298.082) * y_                      + Flt(408.583) * cr_ ) / Flt(256) - Flt(222.921), Flt(0), Flt(255) ));
         }
         return *this;
     }
@@ -796,8 +676,8 @@ public:
     inline Type & subsample_to(Type& dest) const
     {
         /* Half sub-sample of original image */
-        unsigned int w = 0;
-        unsigned int h = 0;
+        unsigned w = 0;
+        unsigned h = 0;
 
         bool odd_width = false;
         bool odd_height = false;
@@ -818,10 +698,10 @@ public:
             odd_height = true;
         }
 
-        unsigned int horizontal_upper = (odd_width)  ? (w - 1) : w;
-        unsigned int vertical_upper   = (odd_height) ? (h - 1) : h;
+        unsigned horizontal_upper = (odd_width)  ? (w - 1) : w;
+        unsigned vertical_upper   = (odd_height) ? (h - 1) : h;
 
-        dest.setwidth_height(w,h);
+        dest.setwidth_height(w, h);
         dest.clear();
 
         pixel_t * dest_row = dest.pixel_begin();
@@ -829,16 +709,16 @@ public:
 
               component_t*  itrD;
         const component_t*  itrA, *itrB;
-        unsigned int total = 0;
+        unsigned total = 0;
 
-        for (unsigned int j = 0; j < h; ++j)
+        for (unsigned j = 0; j < h; ++j)
         {
             itrD = begin(*dest_row);
             itrA = cbegin(*src_row);
             itrB = cbegin(src_row[( odd_height && j == vertical_upper ) ? 0 : row_increment_]);
-            for (unsigned int i = 0; i < horizontal_upper; ++i)
+            for (unsigned i = 0; i < horizontal_upper; ++i)
             {
-                for (unsigned int k = 0; k < bytes_per_pixel_; ++k)
+                for (unsigned k = 0; k < bytes_per_pixel_; ++k)
                 {
                     total = unsigned(itrA[k]) + itrA[k+bytes_per_pixel_]
                           + unsigned(itrB[k]) + itrB[k+bytes_per_pixel_];
@@ -850,7 +730,7 @@ public:
             }
             if (odd_width)
             {
-                for (unsigned int k = 0; k < bytes_per_pixel_; ++k)
+                for (unsigned k = 0; k < bytes_per_pixel_; ++k)
                 {
                     total = unsigned(itrA[k]) + itrB[k];
                     itrD[k] = static_cast<component_t>(total / 2);
@@ -874,14 +754,14 @@ public:
         component_t*  itrA, *itrB;
         const component_t*  itrS;
 
-        for (unsigned int j = 0; j < height_; ++j)
+        for (unsigned j = 0; j < height_; ++j)
         {
             itrS = cbegin(*src_row);
             itrA = begin(*dest_row);
             itrB = begin(dest_row[dest.row_increment()]);
-            for (unsigned int i = 0; i < width_; ++i)
+            for (unsigned i = 0; i < width_; ++i)
             {
-                for (unsigned int k = 0; k < bytes_per_pixel_; ++k)
+                for (unsigned k = 0; k < bytes_per_pixel_; ++k)
                 {
                     itrA[k] = itrA[k+bytes_per_pixel_] = itrS[k];
                     itrB[k] = itrB[k+bytes_per_pixel_] = itrS[k];
@@ -936,7 +816,7 @@ public:
             *(h_itr++) /= pixel_count;
     }
 
-    static inline unsigned int offset(const color_plane color)
+    static inline unsigned offset(const color_plane color)
     {
         return pixel_t::offset(color);
     }
@@ -967,7 +847,7 @@ public:
 
     static inline bool big_endian()
     {
-        unsigned int v = 0x01;
+        unsigned v = 0x01;
         return (1 != reinterpret_cast<char*>(&v)[0]);
     }
 
@@ -976,7 +856,7 @@ public:
         return ((v >> 8) | (v << 8));
     }
 
-    static inline unsigned int flip(const unsigned int& v)
+    static inline unsigned flip(const unsigned v)
     {
         return (
             ((v & 0xFF000000) >> 0x18) |
@@ -987,12 +867,6 @@ public:
     }
 
 protected:
-
-    void create_bitmap()
-    {
-        row_increment_ = width_;
-        data_.resize(height_ * row_increment_);
-    }
 
     template <typename T>
     static inline T clamp(const T& v, const T& lower_range, const T& upper_range)

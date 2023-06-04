@@ -27,97 +27,65 @@ namespace OffScreenBitmapDraw
 {
 
 template <class BitmapImageType = bitmap_image_rgb<> >
-inline void checkered_pattern(const unsigned int x_width,
-                              const unsigned int y_width,
-                              const unsigned char value,
+inline void checkered_pattern(const unsigned x_width,
+                              const unsigned y_width,
+                              const typename BitmapImageType::component_t value,
                               const color_plane color,
                               BitmapImageType& image)
 {
-   if (
-        (x_width >= image.width ()) ||
-        (y_width >= image.height())
-      )
-   {
-      return;
-   }
-
-   bool setter_x = false;
-   bool setter_y = true;
-
-   const unsigned int color_plane_offset = image.offset(color);
-   const unsigned int height = image.height();
-   const unsigned int width  = image.width();
-
-   for (unsigned int y = 0; y < height; ++y)
-   {
-      if (0 == (y % y_width))
-      {
-         setter_y = !setter_y;
-      }
-
-      unsigned char* row = image.char_row(y) + color_plane_offset;
-
-      for (unsigned int x = 0; x < width; ++x, row += image.bytes_per_pixel())
-      {
-         if (0 == (x % x_width))
-         {
-            setter_x = !setter_x;
-         }
-
-         if (setter_x ^ setter_y)
-         {
-            *row = value;
-         }
-      }
-   }
+    if ( x_width >= image.width () || y_width >= image.height() )
+    {
+        assert(0);
+        return;
+    }
+    bool setter_x = false;
+    bool setter_y = true;
+    const unsigned color_plane_offset = image.offset(color);
+    const unsigned height = image.height();
+    const unsigned width  = image.width();
+    for (unsigned y = 0; y < height; ++y)
+    {
+        typename BitmapImageType::component_t* row = image.char_row(y) + color_plane_offset;
+        if (0 == (y % y_width))
+            setter_y = !setter_y;
+        for (unsigned x = 0; x < width; ++x, row += image.bytes_per_pixel())
+        {
+            if (0 == (x % x_width))
+                setter_x = !setter_x;
+            if (setter_x ^ setter_y)
+                *row = value;
+        }
+    }
 }
 
 template <class BitmapImageType = bitmap_image_rgb<> >
-inline void checkered_pattern(const unsigned int x_width,
-                              const unsigned int y_width,
-                              const unsigned char red,
-                              const unsigned char green,
-                              const unsigned char blue,
+inline void checkered_pattern(const unsigned x_width,
+                              const unsigned y_width,
+                              const typename BitmapImageType::pixel_t color,
                               BitmapImageType& image)
 {
-   if (
-        (x_width >= image.width ()) ||
-        (y_width >= image.height())
-      )
-   {
-      return;
-   }
-
-   bool setter_x = false;
-   bool setter_y = true;
-
-   const unsigned int height = image.height();
-   const unsigned int width  = image.width();
-
-   for (unsigned int y = 0; y < height; ++y)
-   {
-      if (0 == (y % y_width))
-      {
-         setter_y = !setter_y;
-      }
-
-      unsigned char* row = image.char_row(y);
-
-      for (unsigned int x = 0; x < width; ++x, row += image.bytes_per_pixel())
-      {
-         if (0 == (x % x_width))
-         {
-            setter_x = !setter_x;
-         }
-
-         if (setter_x ^ setter_y)
-         {
-            *(row + 0) = blue;
-            *(row + 1) = green;
-            *(row + 2) = red;
-         }
-      }
-   }
+    if ( x_width >= image.width () || y_width >= image.height() )
+    {
+        assert(0);
+        return;
+    }
+    bool setter_x = false;
+    bool setter_y = true;
+    const unsigned height = image.height();
+    const unsigned width  = image.width();
+    for (unsigned y = 0; y < height; ++y)
+    {
+        typename BitmapImageType::pixel_t* row = image.row(y);
+        if (0 == (y % y_width))
+            setter_y = !setter_y;
+        for (unsigned x = 0; x < width; ++x, ++row)
+        {
+            if (0 == (x % x_width))
+                setter_x = !setter_x;
+            if (setter_x ^ setter_y)
+                *row = color;
+        }
+    }
 }
 
 }

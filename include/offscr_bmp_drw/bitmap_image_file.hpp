@@ -39,7 +39,7 @@ public:
         BitmapImageType image;
         bool success = load(filename, image);
         if (!success)
-            image.setwidth_height(0, 0);
+            image.reset();
         return image;
     }
 
@@ -53,7 +53,7 @@ public:
             return false;
         }
 
-        image.setwidth_height(0, 0);
+        image.reset();
 
         bitmap_file_header bfh;
         bitmap_information_header bih;
@@ -97,7 +97,7 @@ public:
         const unsigned l_width  = bih.width;
         const unsigned l_height = bih.height;
 
-        unsigned int padding = (4 - ((3 * l_width) % 4)) % 4;
+        unsigned padding = (4 - ((3 * l_width) % 4)) % 4;
         char padding_data[4] = { 0x00, 0x00, 0x00, 0x00 };
 
         std::size_t bitmap_file_size = file_size(filename);
@@ -117,9 +117,8 @@ public:
         }
 
         image.setwidth_height(l_width, l_height);
-        //create_bitmap();
 
-        for (unsigned int i = 0; i < image.height(); ++i)
+        for (unsigned i = 0; i < image.height(); ++i)
         {
             typename ImageT::pixel_t * row_ptr = image.row(image.height() - i - 1); // read in inverted row order
             unsigned char* data_ptr = begin(*row_ptr);
@@ -165,10 +164,10 @@ public:
         write_bfh(stream,bfh);
         write_bih(stream,bih);
 
-        unsigned int padding = (4 - ((3 * image.width()) % 4)) % 4;
+        unsigned padding = (4 - ((3 * image.width()) % 4)) % 4;
         char padding_data[4] = { 0x00, 0x00, 0x00, 0x00 };
 
-        for (unsigned int i = 0; i < image.height(); ++i)
+        for (unsigned i = 0; i < image.height(); ++i)
         {
             const typename ImageT::pixel_t * row_ptr = image.row(image.height() - i - 1);
             //const unsigned char* data_ptr = &data_[(row_increment_ * (height() - i - 1))];

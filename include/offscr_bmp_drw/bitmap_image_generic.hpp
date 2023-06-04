@@ -33,6 +33,8 @@
 namespace OffScreenBitmapDraw
 {
 
+struct Slice {};
+
 // "generic" by means of NOT RGB
 // PixelType could be rgb_t, bgr_t, rgba_t or abgr_t from colors.hpp
 //   alternative: float
@@ -48,115 +50,194 @@ public:
         : width_          (0)
         , height_         (0)
         , row_increment_  (0)
+        , data_vec_       ()
+        , data_           (nullptr)
+        , data_end_       (nullptr)
     {}
 
-    bitmap_image_generic(const unsigned int width, const unsigned int height, const unsigned row_inc = 0)
-        : width_ (width )
-        , height_(height)
-        , row_increment_  (0)
+    bitmap_image_generic(const Type & image)
+        : width_          (image.width_)
+        , height_         (image.height_)
+        , row_increment_  (image.row_increment_)
+        , data_vec_       (image.data_vec_)
+        , data_           (data_vec_.data())
+        , data_end_       (data_ + ((height_ -1) * row_increment_ + width_))
     {
-        assert( !row_inc || row_inc >= width );
-        row_increment_ = row_inc ? row_inc : width_;
-        data_.resize(height_ * row_increment_);
     }
 
-    bitmap_image_generic(const Type& image)
-        : width_    (image.width_    )
-        , height_   (image.height_   )
-        , row_increment_  (image.row_increment_ )
+    bitmap_image_generic(
+        const unsigned width,
+        const unsigned height,
+        const unsigned row_inc = 0
+        )
+        : bitmap_image_generic()
     {
-        data_ = image.data_;
+        resize(width, height, row_inc);
+    }
+
+    bitmap_image_generic(
+        const Slice,
+        Type & image,
+        const unsigned x0 = 0,
+        const unsigned y0 = 0,
+        const unsigned width  = 0,
+        const unsigned height = 0
+        )
+        : bitmap_image_generic()
+    {
+        set_slice_region_from(image, x0, y0, width, height);
+    }
+
+    bool resize(
+        const unsigned width,
+        const unsigned height,
+        const unsigned row_inc = 0
+        )
+    {
+        assert(width > 0 && height > 0);
+        assert( !row_inc || row_inc >= width );
+        if ( !width || !height )
+            return false;
+        if ( row_inc && row_inc < width )
+            return false;
+        width_ = width;
+        height_ = height;
+        row_increment_ = row_inc ? row_inc : width_;
+        data_vec_.resize((height_ -1) * row_increment_ + width_ +1);
+        data_ = data_vec_.data();
+        data_end_ = data_ + ((height_ -1) * row_increment_ + width_);
+        return true;
+    }
+
+    bool set_slice_region_from(
+        Type & image,
+        const unsigned x0 = 0,
+        const unsigned y0 = 0,
+        const unsigned width = 0,
+        const unsigned height = 0
+        )
+    {
+        if (!image.is_valid_region(x0, y0, width, height, true))
+            return false;
+        width_  = (width ) ? width  : (image.width_  - x0);
+        height_ = (height) ? height : (image.height_ - y0);
+        row_increment_ = image.row_increment_;
+        data_ = image.row(y0) + x0;
+        data_end_ = data_ + ((height_ -1) * row_increment_ + width_);
+        data_vec_.clear();
+        return true;
+    }
+
+    bool is_valid_region(
+        const unsigned x0 = 0,
+        const unsigned y0 = 0,
+        const unsigned width  = 0,
+        const unsigned height = 0,
+        bool assert_ = false
+        ) const
+    {
+        const int w = (width ) ? width  : (width_  - x0);
+        const int h = (height) ? height : (height_ - y0);
+        if ( int(x0) + w > int(width_) )
+        {
+            assert(!assert_);
+            return false;
+        }
+        if ( int(y0) + h > int(height_) )
+        {
+            assert(!assert_);
+            return false;
+        }
+        return true;
     }
 
     bitmap_image_generic& operator=(const Type& image)
     {
         if (this != &image)
         {
-            width_           = image.width_;
-            height_          = image.height_;
-            row_increment_   = image.row_increment_;
-            data_ = image.data_;
+            if ( image.data_vec_.size() )
+            {
+                width_           = image.width_;
+                height_          = image.height_;
+                row_increment_   = image.row_increment_;
+                data_vec_ = image.data_vec_;
+                data_ = data_vec_.data();
+                data_end_ = data_ + ((height_ -1) * row_increment_ + width_);
+            }
+            else
+            {
+                width_           = image.width_;
+                height_          = image.height_;
+                row_increment_   = image.width_;
+                data_vec_.resize((height_ -1) * row_increment_ + width_ +1);
+                data_ = data_vec_.data();
+                data_end_ = data_ + ((height_ -1) * row_increment_ + width_);
+                bool success = copy_from(image, 0, 0);
+                assert(success);
+                (void)success;
+            }
         }
         return *this;
     }
 
-    inline bool operator!()
+    inline bool operator!() const
     {
-        return (data_.size()   == 0) ||
-               (width_         == 0) ||
+        return (width_         == 0) ||
                (height_        == 0) ||
                (row_increment_ == 0);
     }
 
     inline void clear(const pixel_t v)
     {
-        std::fill(data_.begin(), data_.end(), v);
+        std::fill(data_, data_end_, v);
     }
 
-    // inline unsigned char red_channel(const unsigned int x, const unsigned int y) const
-    // inline unsigned char green_channel(const unsigned int x, const unsigned int y) const
-    // inline unsigned char blue_channel (const unsigned int x, const unsigned int y) const
-    // inline void red_channel(const unsigned int x, const unsigned int y, const unsigned char value)
-    // inline void green_channel(const unsigned int x, const unsigned int y, const unsigned char value)
-    // inline void blue_channel (const unsigned int x, const unsigned int y, const unsigned char value)
-
-    inline const pixel_t * row(unsigned int row_index) const
+    inline const pixel_t * row(unsigned row_index) const
     {
         return &data_[row_index * row_increment_];
     }
 
-    inline pixel_t * row(unsigned int row_index)
+    inline pixel_t * row(unsigned row_index)
     {
         return &data_[row_index * row_increment_];
     }
 
-    const component_t * char_row(unsigned int row_index) const
+    const component_t * char_row(unsigned row_index) const
     {
         return begin(data_[row_index * row_increment_]);
     }
 
-    component_t * char_row(unsigned int row_index)
+    component_t * char_row(unsigned row_index)
     {
         return begin(data_[row_index * row_increment_]);
     }
 
-    const pixel_t & pixel(const unsigned int x, const unsigned int y) const
+    const pixel_t & pixel(const unsigned x, const unsigned y) const
     {
         return data_[ (y * row_increment_) + x];
     }
 
-    pixel_t & pixel(const unsigned int x, const unsigned int y)
+    pixel_t & pixel(const unsigned x, const unsigned y)
     {
         return data_[ (y * row_increment_) + x];
     }
 
     // @todo: provide this function with an additional/extra (template parameter) class
-    void set_pixel(const unsigned int x, const unsigned int y, const pixel_t color)
+    void set_pixel(const unsigned x, const unsigned y, const pixel_t color)
     {
         data_[ (y * row_increment_) + x] = color;
-    }
-
-    bool copy_from(const Type& image)
-    {
-        if ( image.height_ != height_ || image.width_  != width_ )
-        {
-            return false;
-        }
-        data_ = image.data_;
-        return true;
     }
 
     // copies source_image to this (to_x_offset|to_y_offset)
     bool copy_from(
         const Type& source_image,
-        const unsigned int to_x_offset,
-        const unsigned int to_y_offset
+        const unsigned to_x_offset = 0,
+        const unsigned to_y_offset = 0
         )
     {
-        if ((to_x_offset + source_image.width_ ) > width_ ) { return false; }
-        if ((to_y_offset + source_image.height_) > height_) { return false; }
-
-        for (unsigned int y = 0; y < source_image.height_; ++y)
+        if (!is_valid_region(to_x_offset, to_y_offset, source_image.width_, source_image.height_, true))
+            return false;
+        for (unsigned y = 0; y < source_image.height_; ++y)
         {
             pixel_t* dest_itr          = row(y + to_y_offset) + to_x_offset;
             const pixel_t* src_itr     = source_image.row(y);
@@ -166,30 +247,30 @@ public:
         return true;
     }
 
-    inline bool region_to(
-        const unsigned int x,
-        const unsigned int y,
-        const unsigned int width,
-        const unsigned int height,
+    inline bool copy_region_to(
+        const unsigned x0,
+        const unsigned y0,
+        const unsigned width,
+        const unsigned height,
         Type& dest_image,
-        const unsigned int to_x_offset = 0,
-        const unsigned int to_y_offset = 0
+        const unsigned to_x_offset = 0,
+        const unsigned to_y_offset = 0
         ) const
     {
-        if ((x + width ) > width_ ) { return false; }
-        if ((y + height) > height_) { return false; }
+        if ((x0 + width ) > width_ ) { return false; }
+        if ((y0 + height) > height_) { return false; }
 
         if (
             (dest_image.width_  < to_x_offset + width_ ) ||
             (dest_image.height_ < to_y_offset + height_)
             )
         {
-            dest_image.setwidth_height(width,height);
+            dest_image.setwidth_height(width, height);
         }
 
-        for (unsigned int r = 0; r < height; ++r)
+        for (unsigned r = 0; r < height; ++r)
         {
-            const pixel_t* itr1     = row(r + y) + x;
+            const pixel_t* itr1     = row(r + y0) + x0;
             const pixel_t* itr1_end = itr1 + width;
             pixel_t* dest_itr = dest_image.row(r + to_y_offset) + to_x_offset;
             std::copy(itr1, itr1_end, dest_itr);
@@ -199,61 +280,48 @@ public:
     }
 
     inline bool roi_from_center_to(
-        const unsigned int cx,
-        const unsigned int cy,
-        const unsigned int width,
-        const unsigned int height,
+        const unsigned cx,
+        const unsigned cy,
+        const unsigned width,
+        const unsigned height,
         Type& dest_image,
-        const unsigned int to_x_offset = 0,
-        const unsigned int to_y_offset = 0
+        const unsigned to_x_offset = 0,
+        const unsigned to_y_offset = 0
         ) const
     {
-        return region(cx - (width / 2), cy - (height / 2),
-                      width, height,
-                      dest_image,
-                      to_x_offset, to_y_offset
-                      );
+        const int from_x = cx - (width / 2);
+        const int from_y = cy - (height / 2);
+        assert( from_x >= 0 && from_y >= 0 );
+        if ( from_x < 0 || from_y < 0 )
+            return false;
+        return copy_region_to(
+            from_x, from_y,
+            width, height,
+            dest_image,
+            to_x_offset, to_y_offset
+            );
     }
 
     inline bool set_region(
-        const unsigned int&  x,
-        const unsigned int&  y,
-        const unsigned int&  width,
-        const unsigned int&  height,
+        const unsigned  x0,
+        const unsigned  y0,
+        const unsigned  width,
+        const unsigned  height,
         const pixel_t color
         )
     {
-        if ((x + width ) > width_ ) { return false; }
-        if ((y + height) > height_) { return false; }
-        for (unsigned int r = 0; r < height; ++r)
+        if (!is_valid_region(x0, y0, width, height, true))
+            return false;
+        for (unsigned r = 0; r < height; ++r)
         {
-            pixel_t* itr     = row(r + y) + x;
+            pixel_t* itr     = row(r + y0) + x0;
             pixel_t* itr_end = itr + width;
             std::fill(itr, itr_end, color);
         }
         return true;
     }
 
-    // inline bool set_region(const unsigned int&  x     ,
-    //                        const unsigned int&  y     ,
-    //                        const unsigned int&  width ,
-    //                        const unsigned int&  height,
-    //                        const unsigned char& value )
-    // inline bool set_region(const unsigned int&  x     ,
-    //                        const unsigned int&  y     ,
-    //                        const unsigned int&  width ,
-    //                        const unsigned int&  height,
-    //                        const color_plane    color ,
-    //                        const unsigned char& value )
-    // inline bool set_region(const unsigned int&  x     ,
-    //                        const unsigned int&  y     ,
-    //                        const unsigned int&  width ,
-    //                        const unsigned int&  height,
-    //                        const unsigned char& red   ,
-    //                        const unsigned char& green ,
-    //                        const unsigned char& blue  )
-
-    void reflective_image(Type& image, const bool include_diagnols = false)
+    bool reflective_image(Type& image, const bool include_diagnols = false)
     {
         image.setwidth_height(3 * width_, 3 * height_, true);
         image.copy_from(*this, width_, height_);
@@ -278,82 +346,73 @@ public:
             image.copy_from(tile, 2 * width_, 2 * height_);
             image.copy_from(tile, 0         , 2 * height_);
         }
+
+        return true;
     }
 
     // non-padded width
-    inline unsigned int width() const
+    inline unsigned width() const
     {
         return width_;
     }
 
-    inline unsigned int height() const
+    inline unsigned height() const
     {
         return height_;
     }
 
-    inline unsigned int row_increment() const {
+    inline unsigned row_increment() const {
         return row_increment_;
     }
 
-    inline unsigned int pixel_count_unpadded() const
+    inline unsigned pixel_count_unpadded() const
     {
         return width_ *  height_;
     }
 
-    inline unsigned int pixel_count_with_padding() const
+    inline unsigned pixel_count_with_padding() const
     {
         return row_increment_ *  height_;
     }
 
-    inline void setwidth_height(
-        const unsigned int width,
-        const unsigned int height,
-        const unsigned int row_inc = 0,
+    void reset()
+    {
+        width_ = height_ = row_increment_ = 0;
+        data_vec_.clear();
+        data_ = data_end_ = nullptr;
+    }
+
+    inline bool setwidth_height(
+        const unsigned width,
+        const unsigned height,
+        const unsigned row_inc = 0,
         const bool clear = false)
     {
         assert( !row_inc || row_inc >= width );
-        width_  = width;
-        height_ = height;
-        row_increment_ = row_inc ? row_inc : width_;
-        data_.resize(height_ * row_increment_);
-
+        bool success = resize(width, height, row_inc);
+        if (!success)
+            return false;
         if (clear)
         {
             pixel_t v{};
-            std::fill(data_.begin(), data_.end(), v);
+            std::fill(data_, data_end_, v);
         }
+        return true;
     }
-
-    // inline void set_all_ith_bits_low(const unsigned int bitr_index)
-    // inline void set_all_ith_bits_high(const unsigned int bitr_index)
-    // inline void set_all_ith_channels(const unsigned int& channel, const unsigned char& value)
-    // inline void set_channel(const color_plane color,const unsigned char& value)
-    // inline void ror_channel(const color_plane color, const unsigned int& ror)
-    // inline void set_all_channels(const unsigned char& value)
-    // inline void set_all_channels(const unsigned char& r_value,
-    //                              const unsigned char& g_value,
-    //                              const unsigned char& b_value)
-    // inline void invert_color_planes()
-    // inline void add_to_color_plane(const color_plane color, const unsigned char& value)
-    // inline void convert_to_grayscale()
 
     inline const pixel_t* cdata() const
     {
-        return data_.data();
+        return data_;
     }
 
     inline pixel_t* data()
     {
-       return data_.data();
+       return data_;
     }
-
-    // inline void bgr_to_rgb()
-    // inline void rgb_to_bgr()
-    // inline void reverse()
 
     inline void horizontal_flip()
     {
-        for (unsigned int y = 0; y < height_; ++y)
+        for (unsigned y = 0; y < height_; ++y)
         {
             pixel_t* itr1 = row(y);
             pixel_t* itr2 = itr1 + ( width_ - 1 );
@@ -368,7 +427,7 @@ public:
 
     inline void vertical_flip()
     {
-        for (unsigned int y = 0; y < (height_ / 2); ++y)
+        for (unsigned y = 0; y < (height_ / 2); ++y)
         {
             pixel_t* itr1 = row(y);
             pixel_t* itr2 = row(height_ - y - 1);
@@ -379,68 +438,29 @@ public:
         }
     }
 
-    // inline void export_color_plane(const color_plane color, unsigned char* image)
-    // inline void export_color_plane(const color_plane color, bitmap_image& image)
-    // inline void export_response_image(const color_plane color, double* response_image)
-    // inline void export_gray_scale_response_image(double* response_image) const
-    // inline void export_rgb(double* red, double* green, double* blue) const
-    // inline void export_rgb(float* red, float* green, float* blue) const
-    // inline void export_rgb(unsigned char* red, unsigned char* green, unsigned char* blue) const
-    // inline void export_ycbcr(double* y, double* cb, double* cr) const
-    // inline void export_rgb_normal(double* red, double* green, double* blue) const
-    // inline void export_rgb_normal(float* red, float* green, float* blue) const
-    // inline void import_rgb(double* red, double* green, double* blue)
-    // inline void import_rgb(float* red, float* green, float* blue)
-    // inline void import_rgb(unsigned char* red, unsigned char* green, unsigned char* blue)
-    // inline void import_ycbcr(double* y, double* cb, double* cr)
-    // inline void import_gray_scale_clamped(double* gray)
-    // inline void import_rgb_clamped(double* red, double* green, double* blue)
-    // inline void import_rgb_clamped(float* red, float* green, float* blue)
-    // inline void import_rgb_normal(double* red, double* green, double* blue)
-    // inline void import_rgb_normal(float* red, float* green, float* blue)
-
-    // inline void subsample(bitmap_image& dest) const
-    // inline void upsample(bitmap_image& dest) const
-
-    // inline void alpha_blend(const double& alpha, const bitmap_image& image)
-
-    // inline double psnr(const bitmap_image& image)
-    // inline double psnr(const unsigned int& x, const unsigned int& y, const bitmap_image& image)
-
-    // inline void histogram(const color_plane color, double hist[256]) const
-    // inline void histogram_normalized(const color_plane color, double hist[256]) const
-
-    // inline unsigned int offset(const color_plane color) cons t
-
-    // inline void incremental( )
-
-    // inline void reverse_channels()
-
-
     inline const pixel_t* cend() const
     {
-        return data_.data() + data_.size();
+        return data_end_;
     }
 
     inline pixel_t* end()
     {
-        return data() + data_.size();
+        return data_end_;
     }
 
     inline const pixel_t* clast() const
     {
-        return data() + ( data_.size() - 1);
+        return data_end_ - 1;
     }
 
     inline pixel_t* last()
     {
-        return data() + ( data_.size() - 1);
+        return data_end_ - 1;
     }
 
    static inline bool big_endian()
    {
-      unsigned int v = 0x01;
-
+      unsigned v = 0x01;
       return (1 != reinterpret_cast<char*>(&v)[0]);
    }
 
@@ -451,7 +471,7 @@ protected:
       return ((v >> 8) | (v << 8));
    }
 
-   inline unsigned int flip(const unsigned int& v) const
+   inline unsigned flip(const unsigned v) const
    {
       return (
                ((v & 0xFF000000) >> 0x18) |
@@ -461,30 +481,12 @@ protected:
              );
    }
 
-   unsigned int width_;
-   unsigned int height_;
-   unsigned int row_increment_;
-   std::vector<PixelType> data_;
+   unsigned width_;
+   unsigned height_;
+   unsigned row_increment_;
+   std::vector<PixelType> data_vec_;
+   PixelType* data_;
+   PixelType* data_end_;
 };
 
 }
-
-
-#ifndef NDEBUG
-
-#include "colors.hpp"
-
-// PixelType could be rgb_t, bgr_t, rgba_t or abgr_t from colors.hpp
-
-namespace OffScreenBitmapDraw
-{
-
-static bitmap_image_generic<rgb_t>    internal_test_rgb;
-static bitmap_image_generic<bgr_t>    internal_test_bgr;
-static bitmap_image_generic<rgba_t>   internal_test_rgba;
-static bitmap_image_generic<abgr_t>   internal_test_abgr;
-static bitmap_image_generic<float, float>   internal_test_float;
-
-}
-
-#endif

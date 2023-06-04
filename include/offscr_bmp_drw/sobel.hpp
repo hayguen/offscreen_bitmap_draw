@@ -71,7 +71,7 @@ inline BitmapImageType & sobel_operator(
         }
     }
 
-    dst_image.setwidth_height( static_cast<unsigned int>(im1.width()), static_cast<unsigned int>(im1.height()) );
+    dst_image.setwidth_height( static_cast<unsigned>(im1.width()), static_cast<unsigned>(im1.height()) );
     const T* temp_response_B = im1.row(0);
     dst_image.import_gray_scale_clamped(temp_response_B, back_scale_gray);
     return dst_image;
@@ -120,7 +120,7 @@ inline BitmapImageType & no_sobel_operator(
         }
     }
 
-    dst_image.setwidth_height( static_cast<unsigned int>(im1.width()), static_cast<unsigned int>(im1.height()) );
+    dst_image.setwidth_height( static_cast<unsigned>(im1.width()), static_cast<unsigned>(im1.height()) );
     const T* temp_response_B = im1.row(0);
     dst_image.import_gray_scale_clamped(temp_response_B, back_scale_gray);
     return dst_image;
