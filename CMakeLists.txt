@@ -54,11 +54,22 @@ set( OFFSCR_BMP_DRW_HEADERS
   include/offscr_bmp_drw/colors.hpp
   include/offscr_bmp_drw/convert.hpp
   include/offscr_bmp_drw/image_drawer.hpp
-  include/offscr_bmp_drw/zingl_image_drawer.hpp
   include/offscr_bmp_drw/misc.hpp
   include/offscr_bmp_drw/plasma.hpp
   include/offscr_bmp_drw/response_image.hpp
   include/offscr_bmp_drw/sobel.hpp
+
+  include/offscr_bmp_drw/zingl_image_drawer.hpp
+  include/offscr_bmp_drw/zingl_line.hpp
+  include/offscr_bmp_drw/zingl_line_width.hpp
+  include/offscr_bmp_drw/zingl_ellipse.hpp
+  include/offscr_bmp_drw/zingl_ellipse_fill.hpp
+  include/offscr_bmp_drw/zingl_ellipse_optimized.hpp
+  include/offscr_bmp_drw/zingl_ellipse_optimized_fill.hpp
+  include/offscr_bmp_drw/zingl_ellipse_rect.hpp
+  include/offscr_bmp_drw/zingl_ellipse_rect_fill.hpp
+  include/offscr_bmp_drw/zingl_circle.hpp
+  include/offscr_bmp_drw/zingl_circle_fill.hpp
 )
 
 add_library(offscr_bmp_drw INTERFACE )
