@@ -56,16 +56,36 @@ using FloatDrawer = zingl_image_drawer<BitmapFloatImage>;
 
 const std::string file_name("image.bmp");
 
-static rgb_t cmap[1000];   // generate in test18(), utilized also in test23()
-static bool generated_cmap = false;
+static const double pi_ = 3.14159265358979323846264338327950288419716939937510;
+
+static rgb_t jet_like_cmap[1000];   // generate in test18(), utilized also in test23()
+static bool generated_jet_like_cmap = false;
+
+static void generate_jet_like_colormap()
+{
+    if (generated_jet_like_cmap)
+        return;
+    constexpr int num_colors = 6;
+    int nc[num_colors - 1] = { 40, 60, 200, 300, 400 };
+    rgb_t c[num_colors];
+    set_rgb(c[0], 0, 0, 0);     // black
+    set_rgb(c[1], 10, 10, 128); // blue
+    set_rgb(c[2], 10, 50, 192); // blue -> green
+    set_rgb(c[3], 50, 208, 50); // green
+    set_rgb(c[4], 240, 240, 0); // yellow
+    set_rgb(c[5], 255, 0, 0);   // red
+    int sz = interpolate_color_counts(num_colors, nc, c, jet_like_cmap, 1000);
+    assert( sz == 1000 );
+    generated_jet_like_cmap = true;
+}
 
 static BitmapRGBImage& convert_(const BitmapFloatImage& float_image, BitmapRGBImage& rgb_image)
 {
-    assert(generated_cmap);
+    generate_jet_like_colormap();
     convert_float_to_rgb<rgb_t, BitmapFloatImage, BitmapRGBImage>(
         float_image, rgb_image,
-        cmap, // generated in test18()  // jet_colormap or yarg_colormap
-        (sizeof(cmap) / sizeof(cmap[0])),
+        jet_like_cmap, // jet_colormap or yarg_colormap
+        1000,
         0.75F, false    // 0.75 makes red more often: sort of clipping
         );
     return rgb_image;
@@ -404,54 +424,32 @@ void test17()
 
 void test18()
 {
-    constexpr int h_per_color = 50;
-    constexpr int n_colormaps = 10;
+    generate_jet_like_colormap();
 
     {
-        constexpr int num_colors = 6;
-        int nc[num_colors - 1] = { 40, 60, 300, 300, 300 };
-        rgb_t c[num_colors];
-        set_rgb(c[0], 0, 0, 0);  // black
-        set_rgb(c[1], 10, 10, 128);  // blue
-        set_rgb(c[2], 10, 50, 192); // blue -> green
-        set_rgb(c[3], 50, 192, 50);   // green
-        set_rgb(c[4], 255, 255, 0);   // yellow
-        set_rgb(c[5], 255, 0, 0);       // red
-
-        int next = 0;
-
-        for (int k = 0; k < num_colors - 1; ++k)
-        {
-            assert( next + nc[k] <= 1000 );
-            generate_colours<rgb_t*, rgb_t, float>(nc[k], c[k], c[k+1], &cmap[next]);
-            next = next + nc[k];
-        }
-        assert( next == 1000 );
-        generated_cmap = true;
-    }
-
-    {
-        BitmapRGBImage image(1000, n_colormaps * h_per_color);
-        image_drawer<BitmapRGBImage> draw(image);
-        const rgb_t* colormap[n_colormaps] = {
+        const rgb_t* colormap[] = {
                                    autumn_colormap,
                                    copper_colormap,
                                      gray_colormap,
                                       hot_colormap,
                                       hsv_colormap,
-                                      jet_colormap,
                                     prism_colormap,
                                       vga_colormap,
                                      yarg_colormap,
-                                              cmap
+                                      jet_colormap,
+                                     jet_like_cmap,
                                  };
+        constexpr int h_per_color = 50;
+        constexpr int n_colormaps = sizeof(colormap) / sizeof(colormap[0]);
+        BitmapRGBImage image(1000, n_colormaps * h_per_color);
+        image_drawer<BitmapRGBImage> draw(image);
 
-        for (unsigned int i = 0; i < image.width(); ++i)
+        for (unsigned x = 0; x < image.width(); ++x)
         {
             for (unsigned int j = 0; j < n_colormaps; ++j)
             {
-                draw.pen_color( colormap[j][i] );
-                draw.vertical_line_segment(j * h_per_color, (j + 1) * h_per_color, i);
+                draw.pen_color( colormap[j][x] );
+                draw.vertical_line_segment(x, j * h_per_color, (j + 1) * h_per_color);
             }
         }
 
@@ -470,7 +468,7 @@ void test18()
             for (std::size_t j = 0; j < bar_width; ++j)
             {
                 draw.pen_color( palette_colormap[i] );
-                draw.vertical_line_segment(0, image.height(), static_cast<int>(i * bar_width + j));
+                draw.vertical_line_segment(static_cast<int>(i * bar_width + j), 0, image.height());
             }
         }
 
@@ -481,7 +479,7 @@ void test18()
 void test19()
 {
     using Float = float;
-    static const Float pi = Float(3.14159265358979323846264338327950288419716939937510);
+    static const Float pi = Float(pi_);
     {
         cartesian_canvas<BitmapRGBImage, Float> canvas(1000, 1000);
         if (!canvas)
@@ -688,7 +686,7 @@ void test21()
     }
 
     {
-        static const double pi = 3.14159265358979323846264338327950288419716939937510;
+        static const double pi = pi_;
 
         cartesian_canvas<bitmap_image_float> canvas(1000, 1000);
         if (!canvas)
@@ -947,53 +945,105 @@ void test26()
 }
 
 
-int main()
+const char *testDesc[] = {
+    "compile test with rgb tests",      // 0
+    "load() & save()",                  // 1
+    "vertical/horizontal_flip()",       // 2
+    "subsample_to()",                   // 3
+    "upsample_to",                      // 4
+    "set_all_ith_bits_low()",           // 5
+    "export_color_plane()",             // 6
+    "convert_to_grayscale()",           // 7
+    "copy_region_to()",                 // 8
+    "set_pixel() r/g/b jet_colormap",   // 9
+    "invert_color_planes()",            // 10
+    "add_to_color_plane()",             // 11
+    "export_ycbcr() / import_ycbcr()",  // 12
+    "export_ycbcr() / import_ycbcr()",  // 13
+    "checkered_pattern()",              // 14
+    "plasma< , double>()",              // 15
+    "alpha_blend()",                    // 16
+    "image_drawer<>::circle()/ellipse()/rectangle()",   // 17
+    "generate_colours() colormaps",     // 18
+    "cartesian_canvas<>::rectangle()/circle()", // 19
+    "mandelbrot_set_hsv()",             // 20
+    "cartesian_canvas<float>",          // 21
+    "sobel_operator()",                 // 22
+    "zingl_image_drawer<*> lines/points",       // 23
+    "zingl_image_drawer<*>::plotLineWidth()",   // 24
+    "zingl_image_drawer<*>::plotEllipses/Circle",   // 25
+    "zingl_image_drawer<*>::plot on Slices"     // 26
+};
+
+int main(int argc, char* argv[])
 {
-    test00();
-    bool loadOK = test01();
-    if (!loadOK)
-    {
-        fprintf(stderr, "Note: Many of the tests need a bitmap image with the filename '%s'\n", file_name.c_str());
-        fprintf(stderr, "is required. If not present these tests would fail!\n");
-        fprintf(stderr, "generating plasma (test15) and using that file ..\n");
-        test15(true);
-        loadOK = test01();
-        if (!loadOK)
-            fprintf(stderr, "Error generating or loading generade file!\n");
+    const int last_testno = 26;
+    const int n_first = (argc == 1 ? 0 : 1);
+    const int n_last = (argc == 1 ? last_testno : argc -1);
+    if (argc == 2 && (!strcmp(argv[1], "help") || !strcmp(argv[1], "h"))) {
+        for (int t = 0; t <= last_testno; ++t)
+            fprintf(stderr, "test %2d: %s\n", t, testDesc[t]);
+        return 0;
     }
-    if (loadOK) test02();
-    if (loadOK) test03();
-    if (loadOK) test04();
-    if (loadOK) test05();
-    if (loadOK) test06();
-    if (loadOK) test07();
-    if (loadOK) test08();
-    test09();
-    if (loadOK) test10();
-    if (loadOK) test11();
-    if (loadOK) test12();
-    if (loadOK) test13();
-    test14();
-    test15();
-    if (loadOK) test16();
-    test17();
-    test18();
-    test19();
-    test20();
-    test21();
-    if (loadOK) test22();
-    test23();
-    test24();
-    test25();
-    test26();
+    bool loadOK = true;
+    for (int n = n_first; n <= n_last; ++n)
+    {
+        int t = (argc == 1) ? n : atoi(argv[n]);
+        if (t >= 0 && t <= last_testno)
+            fprintf(stderr, "running test %d ..\n", t);
 
-    rgba_t colortab_unpacked[10];
-    rgb_t colortab_packed[10];
+        if (t == 0)     test00();
+        if (t == 1)
+        {
+            loadOK = test01();
+            if (!loadOK)
+            {
+                fprintf(stderr, "Note: Many of the tests need a bitmap image with the filename '%s'\n", file_name.c_str());
+                fprintf(stderr, "is required. If not present these tests would fail!\n");
+                fprintf(stderr, "generating plasma (test15) and using that file ..\n");
+                test15(true);
+                loadOK = test01();
+                if (!loadOK)
+                    fprintf(stderr, "Error generating or loading generated file!\n");
+            }
+        }
+        if (t == 2 && loadOK)   test02();
+        if (t == 3 && loadOK)   test03();
+        if (t == 4 && loadOK)   test04();
+        if (t == 5 && loadOK)   test05();
+        if (t == 6 && loadOK)   test06();
+        if (t == 7 && loadOK)   test07();
+        if (t == 8 && loadOK)   test08();
+        if (t == 9)     test09();
+        if (t == 10 && loadOK)  test10();
+        if (t == 11 && loadOK)  test11();
+        if (t == 12 && loadOK)  test12();
+        if (t == 13 && loadOK)  test13();
+        if (t == 14)    test14();
+        if (t == 15)    test15();
+        if (t == 16 && loadOK)  test16();
+        if (t == 17)    test17();
+        if (t == 18)    test18();
+        if (t == 19)    test19();
+        if (t == 20)    test20();
+        if (t == 21)    test21();
+        if (t == 22 && loadOK) test22();
+        if (t == 23)    test23();
+        if (t == 24)    test24();
+        if (t == 25)    test25();
+        if (t == 26)    test26();
+    }
 
-    printf("sizeof(rgba_t) = %u bytes\n", unsigned(sizeof(rgb_t)) );
-    printf("sizeof(rgb_t) = %u bytes\n", unsigned(sizeof(rgb_t)) );
-    printf("sizeof(10 * rgb_t) = %u bytes\n", unsigned(sizeof(colortab_packed)) );
-    printf("sizeof(10 * rgba_t) = %u bytes\n", unsigned(sizeof(colortab_unpacked)) );
+    if (argc == 1)
+    {
+        rgba_t colortab_unpacked[10];
+        rgb_t colortab_packed[10];
+
+        printf("sizeof(rgba_t) = %u bytes\n", unsigned(sizeof(rgb_t)) );
+        printf("sizeof(rgb_t) = %u bytes\n", unsigned(sizeof(rgb_t)) );
+        printf("sizeof(10 * rgb_t) = %u bytes\n", unsigned(sizeof(colortab_packed)) );
+        printf("sizeof(10 * rgba_t) = %u bytes\n", unsigned(sizeof(colortab_unpacked)) );
+    }
 
     return 0;
 }

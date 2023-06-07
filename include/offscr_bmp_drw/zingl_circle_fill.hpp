@@ -30,14 +30,16 @@ template <class Setter>
 void zingl_image_drawer<BitmapImageType>::fillCircle(
     const int xm, const int ym, const int rx, const pixel_t color)
 {
-    int x = -rx, y = 0;           /* II. quadrant from bottom left to top right */
+    // code is copy of zingl_image_drawer<BitmapImageType>::fillOptimizedEllipse()
+    //   - using ry == rx in hope, that less registers/vars might optimize better
+    int  x = -rx, y = 0;          /* II. quadrant from bottom left to top right */
     long e2 = rx, dx = (1+2*x)*e2*e2;                       /* error increment  */
     long dy = x*long(x), err = dx+dy;                       /* error of 1.step */
     const int row_inc = int(image_.row_increment());
     pixel_t * row_upper = image_.row(ym + y);   // ym + y
     pixel_t * row_lower = image_.row(ym - y);   // ym - y
     Setter setPixel{image_};
-    int xL = xm, xR = xm;
+    int xL = xm +1, xR = xm;
 
     do {
         xL = std::min(xL, xm+x), xR = std::max(xR, xm-x);
@@ -47,7 +49,7 @@ void zingl_image_drawer<BitmapImageType>::fillCircle(
             setPixel.hLine(xL, xR, ym+y, &row_upper[xL], &row_upper[xR], color);
             if (y)
                 setPixel.hLine(xL, xR, ym-y, &row_lower[xL], &row_lower[xR], color);
-            xL = xR = xm;
+            xL = xm +1; xR = xm;
             err += dy += 2*(long)rx*rx;
             y++;
             row_upper += row_inc;
@@ -55,7 +57,7 @@ void zingl_image_drawer<BitmapImageType>::fillCircle(
         }
     } while (x <= 0);
 
-    if (xL < xR)
+    if (xL <= xR)
     {
         setPixel.hLine(xL, xR, ym+y, &row_upper[xL], &row_upper[xR], color);
         if (y)

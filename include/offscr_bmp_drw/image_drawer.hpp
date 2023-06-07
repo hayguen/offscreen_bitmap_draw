@@ -103,20 +103,20 @@ public:
             std::swap(x1,x2);
         }
 
-        for (int i = 0; i < (x2 - x1); ++i)
+        for (int i = 0; i <= (x2 - x1); ++i)    // include x2
         {
             plot_pen_pixel(x1 +  i,y);
         }
     }
 
-    void vertical_line_segment(int y1, int y2, int x)
+    void vertical_line_segment(int x, int y1, int y2)   // API changed: now: pass x first
     {
         if (y1 > y2)
         {
             std::swap(y1,y2);
         }
 
-        for (int i = 0; i < (y2 - y1); ++i)
+        for (int i = 0; i <= (y2 - y1); ++i)    // include y2
         {
             plot_pen_pixel(x, y1 +  i);
         }

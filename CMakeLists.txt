@@ -93,7 +93,7 @@ add_custom_target(uninstall
 
 ######################################################
 
-foreach (tt "all")
+foreach (tt "all" "cmap")
   add_executable(bitmap_test_${tt} EXCLUDE_FROM_ALL test/bitmap_test_${tt}.cpp )
   target_activate_cxx_compiler_warnings( bitmap_test_${tt} )
   # target_include_directories( bitmap_test_${tt} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include/" )

@@ -253,6 +253,24 @@ public:
     }
 
     template <class Setter = PixelSetter>
+    inline void plotHLine(int x0, int x1, int y, const pixel_t color)
+    {
+        Setter setPixel{image_};
+        pixel_t * row = image_.row(y);
+        setPixel.hLine(x0, x1, y, &row[x0], &row[x1], color);
+    }
+
+    template <class Setter = PixelSetter>
+    inline void plotVLine(int x, int y0, int y1, const pixel_t color)
+    {
+        Setter setPixel{image_};
+        pixel_t * row = image_.row(y0);
+        const int row_inc = int(image_.row_increment());
+        for ( int y = y0; y <= y1; ++y, row += row_inc )
+            setPixel(x, y, &row[x], color);
+    }
+
+    template <class Setter = PixelSetter>
     inline void plotRect(int x0, int y0, int x1, int y1, const pixel_t color)
     {
         Setter setPixel{image_};

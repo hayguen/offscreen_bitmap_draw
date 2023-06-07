@@ -23,6 +23,7 @@
 #include <cstdlib>
 #include <cstdint>
 #include <cmath>
+#include <cassert>
 #include <limits>
 #include <iterator>
 
@@ -40,6 +41,51 @@ enum color_plane {
     green_plane = 1,
     red_plane   = 2
 };
+
+template <class Float>
+struct HSV_f
+{
+    Float h;    // hue in [0 .. 360)
+    Float s;    // saturation in [0 .. 1]
+    Float v;    // value in [0 .. 1]
+};
+
+template <class Float>
+struct RGB_f
+{
+    Float r;    // red in [0 .. 1]
+    Float g;    // green in [0 .. 1]
+    Float b;    // blue in [0 .. 1]
+};
+
+
+template <class Float>
+RGB_f<Float> to_rgb(const HSV_f<Float> hsv)
+{
+    const Float v = hsv.v;
+    if (hsv.s <= 0)
+        return RGB_f<Float>{ v, v, v };
+    Float ht = hsv.h;
+    while (ht < 0)      ht += 360;
+    while (ht >= 360)   ht -= 360;
+    // ht now in [0; 360)
+    const Float h = ht / 60;    // in [0; 6)
+    const int hi = int(h);      // in [0; 5]
+    const Float hf = h - hi;    // in [0; 1)
+    const Float p = v * (1 - hsv.s);
+    const Float q = v * (1 - (hsv.s * hf));
+    const Float t = v * (1 - (hsv.s * (1 - hf)));
+    switch (hi)
+    {
+    default:    assert(0);  // should not happen!
+    case 0:     return RGB_f<Float>{ v, t, p };  break;
+    case 1:     return RGB_f<Float>{ q, v, p };  break;
+    case 2:     return RGB_f<Float>{ p, v, t };  break;
+    case 3:     return RGB_f<Float>{ p, q, v };  break;
+    case 4:     return RGB_f<Float>{ t, p, v };  break;
+    case 5:     return RGB_f<Float>{ v, p, q };  break;
+    }
+}
 
 
 #pragma pack(push, 1)
@@ -104,6 +150,10 @@ rgb_t &set_white(rgb_t &c) { c.red = c.green = c.blue = 0xFF; return c; }
 rgb_t &set_gray(rgb_t &c, rgb_t::component g) { c.red = c.green = c.blue = g; return c; }
 rgb_t &set_gray(rgb_t &c, float g) { c.red = c.green = c.blue = rgb_t::component(255.99F * g); return c; }
 rgb_t &set_rgb(rgb_t &c, rgb_t::component r, rgb_t::component g, rgb_t::component b) { c.red = r; c.green = g; c.blue = b; return c; }
+rgb_t &set_rgb(rgb_t &c, const RGB_f<float> rgb) { c.red = rgb_t::component(255.99F*rgb.r); c.green = rgb_t::component(255.99F*rgb.g); c.blue = rgb_t::component(255.99F*rgb.b); return c; }
+rgb_t &set_rgb(rgb_t &c, const RGB_f<double> rgb) { c.red = rgb_t::component(255.99*rgb.r); c.green = rgb_t::component(255.99*rgb.g); c.blue = rgb_t::component(255.99*rgb.b); return c; }
+rgb_t &set_hsv(rgb_t &c, const HSV_f<float> hsv) { return set_rgb(c, to_rgb(hsv)); }
+rgb_t &set_hsv(rgb_t &c, const HSV_f<double> hsv) { return set_rgb(c, to_rgb(hsv)); }
 rgb_t operator*(rgb_t c, float s) { return scale_rgb<rgb_t>(c, s); }
 
 
@@ -161,6 +211,10 @@ bgr_t &set_white(bgr_t &c) { c.red = c.green = c.blue = 0xFF; return c; }
 bgr_t &set_gray(bgr_t &c, bgr_t::component g) { c.red = c.green = c.blue = g; return c; }
 bgr_t &set_gray(bgr_t &c, float g) { c.red = c.green = c.blue = bgr_t::component(255.99F * g); return c; }
 bgr_t &set_rgb(bgr_t &c, bgr_t::component r, bgr_t::component g, bgr_t::component b) { c.red = r; c.green = g; c.blue = b; return c; }
+bgr_t &set_rgb(bgr_t &c, const RGB_f<float> rgb) { c.red = bgr_t::component(255.99F*rgb.r); c.green = bgr_t::component(255.99F*rgb.g); c.blue = bgr_t::component(255.99F*rgb.b); return c; }
+bgr_t &set_rgb(bgr_t &c, const RGB_f<double> rgb) { c.red = bgr_t::component(255.99*rgb.r); c.green = bgr_t::component(255.99*rgb.g); c.blue = bgr_t::component(255.99*rgb.b); return c; }
+bgr_t &set_hsv(bgr_t &c, const HSV_f<float> hsv) { return set_rgb(c, to_rgb(hsv)); }
+bgr_t &set_hsv(bgr_t &c, const HSV_f<double> hsv) { return set_rgb(c, to_rgb(hsv)); }
 bgr_t operator*(bgr_t c, float s) { return scale_rgb<bgr_t>(c, s); }
 
 
@@ -219,6 +273,10 @@ rgba_t &set_white(rgba_t &c) { c.red = c.green = c.blue = 0xFF; c.alpha = 0x0; r
 rgba_t &set_gray(rgba_t &c, rgba_t::component g) { c.red = c.green = c.blue = g; c.alpha = 0x0; return c; }
 rgba_t &set_gray(rgba_t &c, float g) { c.red = c.green = c.blue = rgba_t::component(255.99F * g); return c; }
 rgba_t &set_rgb(rgba_t &c, rgba_t::component r, rgba_t::component g, rgba_t::component b) { c.red = r; c.green = g; c.blue = b; c.alpha = 0; return c; }
+rgba_t &set_rgb(rgba_t &c, const RGB_f<float> rgb) { c.red = rgba_t::component(255.99F*rgb.r); c.green = rgba_t::component(255.99F*rgb.g); c.blue = rgba_t::component(255.99F*rgb.b); c.alpha = 0; return c; }
+rgba_t &set_rgb(rgba_t &c, const RGB_f<double> rgb) { c.red = rgba_t::component(255.99*rgb.r); c.green = rgba_t::component(255.99*rgb.g); c.blue = rgba_t::component(255.99*rgb.b); c.alpha = 0; return c; }
+rgba_t &set_hsv(rgba_t &c, const HSV_f<float> hsv) { return set_rgb(c, to_rgb(hsv)); }
+rgba_t &set_hsv(rgba_t &c, const HSV_f<double> hsv) { return set_rgb(c, to_rgb(hsv)); }
 rgba_t operator*(rgba_t c, float s) { return scale_rgb<rgba_t>(c, s); }
 
 
@@ -277,6 +335,10 @@ abgr_t &set_white(abgr_t &c) { c.red = c.green = c.blue = 0xFF; c.alpha = 0x0; r
 abgr_t &set_gray(abgr_t &c, abgr_t::component g) { c.red = c.green = c.blue = g; c.alpha = 0x0; return c; }
 abgr_t &set_gray(abgr_t &c, float g) { c.red = c.green = c.blue = abgr_t::component(255.99F * g); return c; }
 abgr_t &set_rgb(abgr_t &c, abgr_t::component r, abgr_t::component g, abgr_t::component b) { c.red = r; c.green = g; c.blue = b; c.alpha = 0; return c; }
+abgr_t &set_rgb(abgr_t &c, const RGB_f<float> rgb) { c.red = abgr_t::component(255.99F*rgb.r); c.green = abgr_t::component(255.99F*rgb.g); c.blue = abgr_t::component(255.99F*rgb.b); c.alpha = 0; return c; }
+abgr_t &set_rgb(abgr_t &c, const RGB_f<double> rgb) { c.red = abgr_t::component(255.99*rgb.r); c.green = abgr_t::component(255.99*rgb.g); c.blue = abgr_t::component(255.99*rgb.b); c.alpha = 0; return c; }
+abgr_t &set_hsv(abgr_t &c, const HSV_f<float> hsv) { return set_rgb(c, to_rgb(hsv)); }
+abgr_t &set_hsv(abgr_t &c, const HSV_f<double> hsv) { return set_rgb(c, to_rgb(hsv)); }
 abgr_t operator*(abgr_t c, float s) { return scale_rgb<abgr_t>(c, s); }
 
 
@@ -376,6 +438,73 @@ inline void generate_colours(const std::size_t& steps, const RGBColorType c0, co
                 static_cast<typename RGBColorType::component>(b0 + (i * db)) );
       *(out++) = c;
     }
+}
+
+template <class RGBColorPoints = rgb_t, class RGBColorMapType = rgb_t>
+inline void interpolate_color_points(
+    const int num_colors,
+    const int color_idx[],
+    const RGBColorPoints color_points[],
+    RGBColorMapType cmap[]
+    )
+{
+    for (int k = 0; k < num_colors - 1; ++k)
+    {
+      const int from = color_idx[k];
+      const int to = color_idx[k+1];
+      for (int idx = from; idx <= to; ++idx)
+      {
+          if (idx == from)
+          {
+              set_rgb(cmap[idx], *red(color_points[k]), *green(color_points[k]), *blue(color_points[k]));
+          }
+          else if (idx == to)
+          {
+              set_rgb(cmap[idx], *red(color_points[k+1]), *green(color_points[k+1]), *blue(color_points[k+1]));
+          }
+          else
+          {
+              float r0 = *red(color_points[k]), g0 = *green(color_points[k]), b0 = *blue(color_points[k]);
+              float r1 = *red(color_points[k+1]), g1 = *green(color_points[k+1]), b1 = *blue(color_points[k+1]);
+              float s = (idx - from) / float(to - from);
+              float r = r0*(1 -s) + r1*s;
+              float g = g0*(1 -s) + g1*s;
+              float b = b0*(1 -s) + b1*s;
+              set_rgb(cmap[idx], rgb_t::component(r), rgb_t::component(g), rgb_t::component(b));
+          }
+      }
+    }
+}
+
+template <class RGBColorPoints = rgb_t, class RGBColorMapType = rgb_t>
+inline int interpolate_color_counts(
+    const int num_colors,
+    const int color_counts[],  // size: num_colors -1. contains number of interpolations to next color_points[]
+    const RGBColorPoints color_points[],
+    RGBColorMapType cmap[],
+    const int cmap_capacity
+    )
+{
+    int next = 0;
+    for (int k = 0; k < num_colors - 1; ++k)
+    {
+      assert( next + color_counts[k] <= cmap_capacity );
+      generate_colours<RGBColorMapType*, RGBColorPoints, float>(color_counts[k], color_points[k], color_points[k+1], &cmap[next]);
+      next = next + color_counts[k];
+    }
+    assert( next <= cmap_capacity );
+    return next;
+}
+
+template <class RGBColorTypeA = rgb_t, class RGBColorTypeB = bgr_t>
+inline void convert_colors(
+    const int num_colors,
+    const RGBColorTypeA src[],
+    RGBColorTypeB dest[]
+    )
+{
+    for (int k = 0; k < num_colors; ++k)
+      set_rgb(dest[k], *red(src[k]), *green(src[k]), *blue(src[k]));
 }
 
 

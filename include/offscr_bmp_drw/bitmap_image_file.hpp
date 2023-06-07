@@ -23,6 +23,7 @@
 #include "bitmap_image_rgb.hpp"
 
 #include <fstream>
+#include <vector>
 
 
 namespace OffScreenBitmapDraw
@@ -118,14 +119,33 @@ public:
 
         image.setwidth_height(l_width, l_height);
 
-        for (unsigned i = 0; i < image.height(); ++i)
+        if (sizeof(typename ImageT::pixel_t) == sizeof(bgr_t) && cbegin(*image.row(0)) != blue(*image.row(0)) )
         {
-            typename ImageT::pixel_t * row_ptr = image.row(image.height() - i - 1); // read in inverted row order
-            unsigned char* data_ptr = begin(*row_ptr);
-            //unsigned char* data_ptr = row(height() - i - 1); // read in inverted row order
+            std::vector<bgr_t> line_buffer(image.width());
+            for (unsigned i = 0; i < image.height(); ++i)
+            {
+                typename ImageT::pixel_t * row_ptr = image.row(image.height() - i - 1);
+                unsigned char* data_ptr = begin(*line_buffer.data());
+                stream.read(reinterpret_cast<char*>(data_ptr), sizeof(char) * ImageT::bytes_per_pixel() * image.width());
+                stream.read(padding_data, padding);
 
-            stream.read(reinterpret_cast<char*>(data_ptr), sizeof(char) * ImageT::bytes_per_pixel() * image.width());
-            stream.read(padding_data,padding);
+                for (unsigned x = 0; x < image.width(); ++x)
+                {
+                    *blue(row_ptr[x]) = *blue(line_buffer[x]);
+                    *green(row_ptr[x]) = *green(line_buffer[x]);
+                    *red(row_ptr[x]) = *red(line_buffer[x]);
+                }
+            }
+        }
+        else
+        {
+            for (unsigned i = 0; i < image.height(); ++i)
+            {
+                typename ImageT::pixel_t * row_ptr = image.row(image.height() - i - 1); // read in inverted row order
+                unsigned char* data_ptr = begin(*row_ptr);
+                stream.read(reinterpret_cast<char*>(data_ptr), sizeof(char) * ImageT::bytes_per_pixel() * image.width());
+                stream.read(padding_data, padding);
+            }
         }
 
         return true;
@@ -167,14 +187,32 @@ public:
         unsigned padding = (4 - ((3 * image.width()) % 4)) % 4;
         char padding_data[4] = { 0x00, 0x00, 0x00, 0x00 };
 
-        for (unsigned i = 0; i < image.height(); ++i)
+        if (sizeof(typename ImageT::pixel_t) == sizeof(bgr_t) && begin(*image.row(0)) != blue(*image.row(0)) )
         {
-            const typename ImageT::pixel_t * row_ptr = image.row(image.height() - i - 1);
-            //const unsigned char* data_ptr = &data_[(row_increment_ * (height() - i - 1))];
-            const unsigned char* data_ptr = begin(*row_ptr);
-
-            stream.write(reinterpret_cast<const char*>(data_ptr), sizeof(unsigned char) * ImageT::bytes_per_pixel() * image.width());
-            stream.write(padding_data,padding);
+            std::vector<bgr_t> line_buffer(image.width());
+            for (unsigned i = 0; i < image.height(); ++i)
+            {
+                const typename ImageT::pixel_t * row_ptr = image.row(image.height() - i - 1);
+                for (unsigned x = 0; x < image.width(); ++x)
+                {
+                    *blue(line_buffer[x]) = *blue(row_ptr[x]);
+                    *green(line_buffer[x]) = *green(row_ptr[x]);
+                    *red(line_buffer[x]) = *red(row_ptr[x]);
+                }
+                const unsigned char* data_ptr = begin(*line_buffer.data());
+                stream.write(reinterpret_cast<const char*>(data_ptr), sizeof(unsigned char) * ImageT::bytes_per_pixel() * image.width());
+                stream.write(padding_data,padding);
+            }
+        }
+        else
+        {
+            for (unsigned i = 0; i < image.height(); ++i)
+            {
+                const typename ImageT::pixel_t * row_ptr = image.row(image.height() - i - 1);
+                const unsigned char* data_ptr = begin(*row_ptr);
+                stream.write(reinterpret_cast<const char*>(data_ptr), sizeof(unsigned char) * ImageT::bytes_per_pixel() * image.width());
+                stream.write(padding_data,padding);
+            }
         }
 
         stream.close();
