@@ -37,3 +37,6 @@ Thus, it's header-only.
 * Bresenham Code/Site of Alois Zingl
   * https://zingl.github.io/bresenham.html
   * https://github.com/zingl/Bresenham
+* PNG loader encoder/decoder
+  * https://github.com/lvandeve/lodepng
+ 
